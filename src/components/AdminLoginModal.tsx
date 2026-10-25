@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Lock, Mail, KeyRound, ShieldAlert, Check, Eye, EyeOff } from 'lucide-react';
 import { COMPANY_DATA } from '../data/properties';
 
@@ -15,11 +15,19 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [email, setEmail] = useState('admin@oliveiraeliasexclusive.com.br');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setEmail('');
+      setPassword('');
+      setError('');
+    }
+  }, [isOpen]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

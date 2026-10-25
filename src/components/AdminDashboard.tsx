@@ -107,13 +107,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [toastMessage, setToastMessage] = useState('Alterações salvas com sucesso!');
   const [confirmResetModal, setConfirmResetModal] = useState(false);
   
-  // Property to Delete confirmation modal
+  // Property to Delete confirmation state (inline and modal)
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Property Form Modal (Add / Edit)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [formData, setFormData] = useState<PropertyFormState>(emptyFormState);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Vercel Blob Upload states
   const [isUploadingHero, setIsUploadingHero] = useState(false);
@@ -178,6 +180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
     setFormMode('create');
     setFormImgError(null);
+    setFormError(null);
     setIsFormModalOpen(true);
   };
 
@@ -201,15 +204,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
     setFormMode('edit');
     setFormImgError(null);
+    setFormError(null);
     setIsFormModalOpen(true);
   };
 
   // Handle Form Submission (Add or Update)
   const handleSavePropertyForm = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     if (!formData.title.trim()) {
-      alert('Por favor insira um título para o imóvel.');
+      setFormError('Por favor insira um título para o imóvel.');
       return;
     }
 
@@ -289,19 +294,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsFormModalOpen(false);
   };
 
-  // Confirm Delete Property
-  const handleConfirmDelete = () => {
-    if (!propertyToDelete) return;
-
-    const updated = draftProperties.filter((p) => p.id !== propertyToDelete.id);
+  // Direct and instantaneous property deletion without any window.confirm / popup
+  const handleDeleteDirect = (id: string, code?: string) => {
+    const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
     onSave(draftHero, updated);
 
-    setToastMessage(`Imóvel ${propertyToDelete.code} excluído com sucesso!`);
+    setToastMessage(`Imóvel ${code ? code : ''} excluído com sucesso!`);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
 
+    setDeletingId(null);
     setPropertyToDelete(null);
+  };
+
+  // Confirm Delete Property from custom modal
+  const handleConfirmDelete = () => {
+    if (!propertyToDelete) return;
+    handleDeleteDirect(propertyToDelete.id, propertyToDelete.code);
   };
 
   // Upload Property Form Image to Vercel Blob
@@ -680,26 +690,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
 
                         {/* Action buttons on card: Edit and Delete */}
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditProperty(prop)}
-                            className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700 hover:border-amber-400"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Editar</span>
-                          </button>
+                        {deletingId === prop.id ? (
+                          <div className="bg-red-950/90 border border-red-500/60 rounded-xl p-2.5 space-y-2 mt-2 animate-in fade-in">
+                            <div className="flex items-center gap-1.5 text-red-200 text-xs font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                              <span>Excluir {prop.code}?</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-tight">
+                              Confirma a exclusão deste imóvel?
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeletingId(null);
+                                  setPropertyToDelete(null);
+                                }}
+                                className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDirect(prop.id, prop.code)}
+                                className="px-2 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold rounded-lg transition-colors cursor-pointer shadow-lg shadow-red-600/30 flex items-center justify-center gap-1 text-center"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Sim, Excluir</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditProperty(prop)}
+                              className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700 hover:border-amber-400"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Editar</span>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setPropertyToDelete(prop)}
-                            className="bg-red-950/40 hover:bg-red-900/80 text-red-300 hover:text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-red-500/30 hover:border-red-500"
-                            title="Excluir este imóvel"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Excluir</span>
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeletingId(prop.id);
+                                setPropertyToDelete(prop);
+                              }}
+                              className="bg-red-950/40 hover:bg-red-900/80 text-red-300 hover:text-white text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-red-500/30 hover:border-red-500"
+                              title="Excluir este imóvel"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Excluir</span>
+                            </button>
+                          </div>
+                        )}
 
                       </div>
                     </div>
@@ -883,6 +928,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Form */}
             <form onSubmit={handleSavePropertyForm} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-red-950/80 border border-red-500/50 rounded-xl text-red-200 text-xs flex items-center gap-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
               
               {/* Título */}
               <div>
@@ -1126,20 +1177,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsFormModalOpen(false)}
-                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs sm:text-sm cursor-pointer shadow-lg shadow-amber-500/20"
-                >
-                  {formMode === 'create' ? 'Cadastrar Imóvel' : 'Salvar Alterações'}
-                </button>
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+                {formMode === 'edit' && formData.id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prop = draftProperties.find((p) => p.id === formData.id);
+                      if (prop) {
+                        setIsFormModalOpen(false);
+                        setPropertyToDelete(prop);
+                        setDeletingId(prop.id);
+                      }
+                    }}
+                    className="px-3.5 py-2.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-white rounded-xl text-xs font-bold border border-red-500/40 cursor-pointer flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir Imóvel</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormModalOpen(false)}
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs sm:text-sm cursor-pointer shadow-lg shadow-amber-500/20 transition-all"
+                  >
+                    {formMode === 'create' ? 'Cadastrar Imóvel' : 'Salvar Alterações'}
+                  </button>
+                </div>
               </div>
 
             </form>
@@ -1149,32 +1222,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* MODAL: CONFIRMAR EXCLUSÃO DE IMÓVEL                            */}
+      {/* MODAL CUSTOMIZADO: CONFIRMAR EXCLUSÃO DE IMÓVEL               */}
       {/* ============================================================== */}
       {propertyToDelete && (
-        <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-red-500/40 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
-            <div className="w-14 h-14 rounded-full bg-red-950/80 text-red-400 border border-red-500/40 flex items-center justify-center mx-auto">
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => {
+            setPropertyToDelete(null);
+            setDeletingId(null);
+          }}
+        >
+          <div
+            className="bg-slate-900 border border-red-500/50 rounded-3xl max-w-sm sm:max-w-md w-full p-6 text-center space-y-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPropertyToDelete(null);
+                setDeletingId(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-full bg-red-950/80 text-red-400 border border-red-500/40 flex items-center justify-center mx-auto shadow-inner">
               <Trash2 className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-bold text-white">Excluir este Imóvel?</h3>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Você está prestes a excluir o imóvel <strong>{propertyToDelete.code}</strong> ({propertyToDelete.title}). Esta ação removerá o imóvel do site.
-            </p>
-            <div className="flex gap-2.5 justify-center pt-2">
+
+            <div>
+              <h3 className="text-lg font-bold text-white">Excluir este Imóvel?</h3>
+              <p className="text-amber-400 text-xs font-mono font-bold mt-0.5">
+                Código: {propertyToDelete.code} • {propertyToDelete.type}
+              </p>
+            </div>
+
+            <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 text-left text-xs text-slate-300 space-y-1.5">
+              <p className="font-semibold text-white truncate">
+                {propertyToDelete.title}
+              </p>
+              <p className="text-slate-400 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                <span>Bairro {propertyToDelete.neighborhood}, Navegantes</span>
+              </p>
+              <p className="text-red-400 font-semibold pt-1 border-t border-slate-800/80">
+                Esta ação removerá o imóvel imediatamente do site e salvará as alterações no navegador.
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 justify-end pt-2">
               <button
                 type="button"
-                onClick={() => setPropertyToDelete(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
+                onClick={() => {
+                  setPropertyToDelete(null);
+                  setDeletingId(null);
+                }}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               >
-                Cancelar
+                Cancelar (Não)
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-red-600/30"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-red-600/30 transition-all flex items-center gap-1.5"
               >
-                Sim, Excluir
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sim, Excluir Imóvel</span>
               </button>
             </div>
           </div>
@@ -1185,8 +1300,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* MODAL: CONFIRMAR RESTAURAÇÃO DE FÁBRICA                       */}
       {/* ============================================================== */}
       {confirmResetModal && (
-        <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 text-center space-y-4">
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setConfirmResetModal(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
               <AlertCircle className="w-6 h-6" />
             </div>
