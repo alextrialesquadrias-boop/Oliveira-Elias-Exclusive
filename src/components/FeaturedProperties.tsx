@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BedDouble, Bath, Car, Maximize2, Sparkles, MapPin, Tag, ArrowRight, Check } from 'lucide-react';
+import { BedDouble, Bath, Car, Maximize2, Sparkles, MapPin, Tag, ArrowRight, Check, Home, Building2, Layers } from 'lucide-react';
 import { Property, SearchFilter } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
@@ -10,19 +10,31 @@ interface FeaturedPropertiesProps {
   onClearFilters: () => void;
 }
 
+export type PropertyCategoryTab = 'Todos' | 'Apartamentos' | 'Casas' | 'Terrenos' | 'Comerciais';
+
 export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
   properties,
   searchFilter,
   onSelectProperty,
   onClearFilters
 }) => {
-  const [activeTab, setActiveTab] = useState<'Todos' | 'Apartamento' | 'Casa' | 'Terreno' | 'Comercial'>('Todos');
-  const [showAll, setShowAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<PropertyCategoryTab>('Todos');
+  const [showAll, setShowAll] = useState(true);
+
+  // Tab category matcher
+  const matchesCategory = (itemType: Property['type'], tab: PropertyCategoryTab): boolean => {
+    if (tab === 'Todos') return true;
+    if (tab === 'Apartamentos') return itemType === 'Apartamento';
+    if (tab === 'Casas') return itemType === 'Casa';
+    if (tab === 'Terrenos') return itemType === 'Terreno';
+    if (tab === 'Comerciais') return itemType === 'Comercial';
+    return true;
+  };
 
   // Filter properties based on searchFilter and active tab
   const filtered = properties.filter((item) => {
     // Tab filter
-    if (activeTab !== 'Todos' && item.type !== activeTab) {
+    if (!matchesCategory(item.type, activeTab)) {
       return false;
     }
     // Search filter type
@@ -49,9 +61,14 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
     return true;
   });
 
-  // Display either the top 6 or all matching
-  const displayedProperties = showAll ? filtered : filtered.slice(0, 6);
   const isFiltered = !!(searchFilter.code || searchFilter.type || searchFilter.priceRange || activeTab !== 'Todos');
+
+  // Counts for each tab
+  const countForTab = (tab: PropertyCategoryTab) => {
+    return properties.filter((p) => matchesCategory(p.type, tab)).length;
+  };
+
+  const tabs: PropertyCategoryTab[] = ['Todos', 'Apartamentos', 'Casas', 'Terrenos', 'Comerciais'];
 
   return (
     <section id="imoveis" className="py-20 lg:py-28 bg-slate-900 text-white relative">
@@ -61,7 +78,7 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-wider mb-3">
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>Exclusividades em Navegantes</span>
@@ -75,22 +92,31 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
           <div className="w-20 h-1 bg-amber-500 mx-auto mt-4 rounded-full"></div>
         </div>
 
-        {/* Quick Filter Tabs */}
+        {/* Category Tabs: Todos, Apartamentos, Casas, Terrenos, Comerciais */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-10">
-          {(['Todos', 'Apartamento', 'Casa', 'Terreno', 'Comercial'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                activeTab === tab
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 font-bold scale-105'
-                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-              }`}
-            >
-              {tab === 'Todos' ? 'Todos os Imóveis' : tab + 's'}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            const count = countForTab(tab);
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                  isActive
+                    ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 font-bold scale-105 border border-amber-400'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+                }`}
+              >
+                <span>{tab}</span>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                  isActive ? 'bg-slate-950 text-amber-400' : 'bg-slate-700 text-slate-300'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search feedback & reset banner if filters are active */}
@@ -105,187 +131,207 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
                 setActiveTab('Todos');
                 setShowAll(true);
               }}
-              className="text-xs font-bold text-amber-400 hover:text-amber-300 underline underline-offset-4"
+              className="text-xs font-bold text-amber-400 hover:text-amber-300 underline underline-offset-4 cursor-pointer"
             >
               Limpar Filtros e Ver Todos
             </button>
           </div>
         )}
 
-        {/* Property Grid (6 items default) */}
-        {displayedProperties.length === 0 ? (
-          <div className="bg-slate-800/60 rounded-3xl p-12 text-center border border-slate-700 max-w-xl mx-auto my-8">
-            <p className="text-lg text-slate-300 font-medium mb-3">
-              Nenhum imóvel encontrado para os critérios selecionados.
+        {/* Entire Inventory Empty Message */}
+        {properties.length === 0 ? (
+          <div className="bg-slate-800/60 rounded-3xl p-10 sm:p-14 text-center border border-slate-700 max-w-xl mx-auto my-8 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30">
+              <Home className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Nenhum imóvel cadastrado no momento</h3>
+            <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+              Novas oportunidades exclusivas de venda em Navegantes/SC estão sendo cadastradas pela corretora Daniela de Oliveira Elias. Entre em contato para atendimento personalizado.
             </p>
-            <p className="text-sm text-slate-400 mb-6">
-              Entre em contato direto com Daniela de Oliveira Elias para encontrar opções personalizadas em Navegantes.
+          </div>
+        ) : filtered.length === 0 ? (
+          /* Filtered category empty */
+          <div className="bg-slate-800/60 rounded-3xl p-10 text-center border border-slate-700 max-w-xl mx-auto my-8 space-y-4">
+            <div className="w-14 h-14 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center mx-auto">
+              <Layers className="w-7 h-7" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Nenhum imóvel encontrado em "{activeTab}"</h3>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Não encontramos imóveis para os filtros atuais. Experimente selecionar outra categoria ou redefinir a busca.
             </p>
             <button
               onClick={() => {
                 onClearFilters();
                 setActiveTab('Todos');
               }}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
             >
-              Redefinir Filtros
+              Ver Todos os Imóveis ({properties.length})
             </button>
           </div>
         ) : (
+          /* Property Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {displayedProperties.map((prop) => (
-              <div
-                key={prop.id}
-                className="bg-slate-800/70 border border-slate-700/70 hover:border-amber-500/50 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-black/50 transition-all duration-300 flex flex-col group"
-              >
-                {/* Image Container with Badges */}
-                <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
-                  <img
-                    src={prop.images[0].url}
-                    alt={prop.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20"></div>
+            {filtered.map((prop) => {
+              const mainImg = prop.images?.[0]?.url || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80';
+              const recommendedDim = prop.images?.[0]?.recommendedDim || '1200 × 800 px';
 
-                  {/* Venda Tag & Property Code */}
-                  <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center">
-                    <span className="bg-emerald-600 text-white text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-md">
-                      Venda
-                    </span>
-                    {prop.tag && (
-                      <span className="bg-amber-500 text-slate-950 text-[11px] font-bold px-2 py-1 rounded-md shadow-md">
-                        {prop.tag}
+              return (
+                <div
+                  key={prop.id}
+                  className="bg-slate-800/70 border border-slate-700/70 hover:border-amber-500/50 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-black/50 transition-all duration-300 flex flex-col group"
+                >
+                  {/* Image Container with Badges */}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
+                    <img
+                      src={mainImg}
+                      alt={prop.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20"></div>
+
+                    {/* Venda Tag & Property Code */}
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center">
+                      <span className="bg-emerald-600 text-white text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-md">
+                        Venda
                       </span>
-                    )}
-                  </div>
+                      {prop.featured && (
+                        <span className="bg-amber-500 text-slate-950 text-[11px] font-bold px-2 py-1 rounded-md shadow-md">
+                          Destaque
+                        </span>
+                      )}
+                      {prop.tag && !prop.featured && (
+                        <span className="bg-amber-500 text-slate-950 text-[11px] font-bold px-2 py-1 rounded-md shadow-md">
+                          {prop.tag}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="absolute top-3 right-3">
-                    <span className="bg-slate-950/85 backdrop-blur-md text-amber-300 border border-amber-500/30 text-xs font-mono font-bold px-2 py-0.5 rounded-md">
-                      {prop.code}
-                    </span>
-                  </div>
-
-                  {/* Recommended image dimension placeholder indicator */}
-                  <div className="absolute bottom-2 left-2 bg-slate-950/80 backdrop-blur-sm text-[10px] text-slate-300 px-2 py-0.5 rounded border border-white/10">
-                    {prop.images[0].recommendedDim}
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    {/* Type + Neighborhood in Navegantes */}
-                    <div className="flex items-center justify-between text-xs font-semibold text-amber-400 mb-1.5">
-                      <span className="uppercase tracking-wider">
-                        {prop.type}
-                      </span>
-                      <span className="flex items-center gap-1 text-slate-300 font-normal">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                        {prop.neighborhood}, Navegantes
+                    <div className="absolute top-3 right-3">
+                      <span className="bg-slate-950/85 backdrop-blur-md text-amber-300 border border-amber-500/30 text-xs font-mono font-bold px-2 py-0.5 rounded-md">
+                        {prop.code}
                       </span>
                     </div>
 
-                    {/* Title */}
-                    <h3 className="font-bold text-lg text-white group-hover:text-amber-400 transition-colors line-clamp-2 mb-3">
-                      {prop.title}
-                    </h3>
-
-                    {/* Price */}
-                    <div className="mb-4">
-                      <span className="text-xs text-slate-400 block">Valor de Venda</span>
-                      <span className="text-xl sm:text-2xl font-extrabold text-amber-400 tracking-tight">
-                        {formatCurrency(prop.price)}
-                      </span>
+                    {/* Recommended dimension indicator */}
+                    <div className="absolute bottom-2 left-2 bg-slate-950/80 backdrop-blur-sm text-[10px] text-slate-300 px-2 py-0.5 rounded border border-white/10">
+                      {recommendedDim}
                     </div>
+                  </div>
 
-                    {/* Specifications (Quartos, Banheiros, Vagas, m²) */}
-                    <div className="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/80 text-xs text-slate-300 mb-5 text-center">
-                      {prop.bedrooms !== undefined ? (
-                        <div title={`${prop.bedrooms} Quartos`}>
-                          <BedDouble className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-                          <span className="font-semibold block">{prop.bedrooms}</span>
-                          <span className="text-[10px] text-slate-400">Qts</span>
-                        </div>
-                      ) : (
-                        <div>
+                  {/* Card Body */}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      {/* Type + Neighborhood in Navegantes */}
+                      <div className="flex items-center justify-between text-xs font-semibold text-amber-400 mb-1.5">
+                        <span className="uppercase tracking-wider">
+                          {prop.type}
+                        </span>
+                        <span className="flex items-center gap-1 text-slate-300 font-normal">
+                          <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                          {prop.neighborhood}, Navegantes
+                        </span>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="font-bold text-lg text-white group-hover:text-amber-400 transition-colors line-clamp-2 mb-3">
+                        {prop.title}
+                      </h3>
+
+                      {/* Price */}
+                      <div className="mb-4">
+                        <span className="text-xs text-slate-400 block">Valor de Venda</span>
+                        <span className="text-xl sm:text-2xl font-extrabold text-amber-400 tracking-tight">
+                          {formatCurrency(prop.price)}
+                        </span>
+                      </div>
+
+                      {/* Specifications (Quartos, Banheiros, Vagas, m²) */}
+                      <div className="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/80 text-xs text-slate-300 mb-5 text-center">
+                        {prop.bedrooms !== undefined && prop.bedrooms > 0 ? (
+                          <div title={`${prop.bedrooms} Quartos`}>
+                            <BedDouble className="w-4 h-4 mx-auto mb-1 text-amber-400" />
+                            <span className="font-semibold block">{prop.bedrooms}</span>
+                            <span className="text-[10px] text-slate-400">Qts</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <Maximize2 className="w-4 h-4 mx-auto mb-1 text-amber-400" />
+                            <span className="font-semibold block">{prop.areaM2}</span>
+                            <span className="text-[10px] text-slate-400">m² Total</span>
+                          </div>
+                        )}
+
+                        {prop.bathrooms !== undefined && prop.bathrooms > 0 ? (
+                          <div title={`${prop.bathrooms} Banheiros`}>
+                            <Bath className="w-4 h-4 mx-auto mb-1 text-amber-400" />
+                            <span className="font-semibold block">{prop.bathrooms}</span>
+                            <span className="text-[10px] text-slate-400">Banhos</span>
+                          </div>
+                        ) : (
+                          <div title="Documentação Regularizada">
+                            <Check className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
+                            <span className="font-semibold block">100%</span>
+                            <span className="text-[10px] text-slate-400">Regul.</span>
+                          </div>
+                        )}
+
+                        {prop.parkingSpots !== undefined && prop.parkingSpots > 0 ? (
+                          <div title={`${prop.parkingSpots} Vagas`}>
+                            <Car className="w-4 h-4 mx-auto mb-1 text-amber-400" />
+                            <span className="font-semibold block">{prop.parkingSpots}</span>
+                            <span className="text-[10px] text-slate-400">Vagas</span>
+                          </div>
+                        ) : (
+                          <div title="Navegantes">
+                            <MapPin className="w-4 h-4 mx-auto mb-1 text-amber-400" />
+                            <span className="font-semibold block truncate">{prop.neighborhood}</span>
+                            <span className="text-[10px] text-slate-400">Bairro</span>
+                          </div>
+                        )}
+
+                        <div title={`${prop.areaM2} m² Área Privativa`}>
                           <Maximize2 className="w-4 h-4 mx-auto mb-1 text-amber-400" />
                           <span className="font-semibold block">{prop.areaM2}</span>
-                          <span className="text-[10px] text-slate-400">m² Total</span>
+                          <span className="text-[10px] text-slate-400">m²</span>
                         </div>
-                      )}
-
-                      {prop.bathrooms !== undefined ? (
-                        <div title={`${prop.bathrooms} Banheiros`}>
-                          <Bath className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-                          <span className="font-semibold block">{prop.bathrooms}</span>
-                          <span className="text-[10px] text-slate-400">Banhos</span>
-                        </div>
-                      ) : (
-                        <div title="Documentado">
-                          <Check className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
-                          <span className="font-semibold block">100%</span>
-                          <span className="text-[10px] text-slate-400">Regul.</span>
-                        </div>
-                      )}
-
-                      {prop.parkingSpots !== undefined ? (
-                        <div title={`${prop.parkingSpots} Vagas`}>
-                          <Car className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-                          <span className="font-semibold block">{prop.parkingSpots}</span>
-                          <span className="text-[10px] text-slate-400">Vagas</span>
-                        </div>
-                      ) : (
-                        <div title="Navegantes">
-                          <MapPin className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-                          <span className="font-semibold block">Gravatá</span>
-                          <span className="text-[10px] text-slate-400">Bairro</span>
-                        </div>
-                      )}
-
-                      <div title={`${prop.areaM2} m² Área Privativa`}>
-                        <Maximize2 className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-                        <span className="font-semibold block">{prop.areaM2}</span>
-                        <span className="text-[10px] text-slate-400">m²</span>
                       </div>
                     </div>
+
+                    {/* Ver Detalhes Button */}
+                    <button
+                      type="button"
+                      onClick={() => onSelectProperty(prop)}
+                      className="w-full bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-white font-bold text-sm py-3 px-4 rounded-xl border border-amber-500/30 hover:border-amber-400 transition-all flex items-center justify-center gap-2 group-hover:bg-amber-500 group-hover:text-slate-950 cursor-pointer shadow-md"
+                    >
+                      <span>Ver Detalhes</span>
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </button>
+
                   </div>
-
-                  {/* Ver Detalhes Button */}
-                  <button
-                    type="button"
-                    onClick={() => onSelectProperty(prop)}
-                    className="w-full bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-white font-bold text-sm py-3 px-4 rounded-xl border border-amber-500/30 hover:border-amber-400 transition-all flex items-center justify-center gap-2 group-hover:bg-amber-500 group-hover:text-slate-950 cursor-pointer shadow-md"
-                  >
-                    <span>Ver Detalhes</span>
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </button>
-
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Botão "Ver Todos os Imóveis" abaixo */}
-        <div className="mt-14 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setShowAll(!showAll);
-              if (!showAll && isFiltered) {
-                onClearFilters();
-              }
-            }}
-            className="inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-extrabold text-base py-4 px-8 rounded-2xl shadow-xl shadow-amber-500/20 hover:shadow-amber-500/40 transition-all transform hover:-translate-y-1 active:translate-y-0 cursor-pointer border border-amber-300"
-          >
-            <span>{showAll ? 'Mostrar Menos Imóveis' : 'Ver Todos os Imóveis'}</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
-          <p className="text-xs text-slate-400 mt-3">
-            Atendimento 24h com a corretora Daniela de Oliveira Elias (CRECI-SC 71040F)
-          </p>
-        </div>
+        {/* Footer Note under Grid */}
+        {properties.length > 0 && (
+          <div className="mt-14 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Total de {properties.length} imóveis cadastrados para venda em Navegantes/SC</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              Atendimento 24h com a corretora Daniela de Oliveira Elias (CRECI-SC 71040F)
+            </p>
+          </div>
+        )}
 
       </div>
     </section>

@@ -174,9 +174,13 @@ export const NegotiateModal: React.FC<NegotiateModalProps> = ({ isOpen, onClose 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm sm:text-base py-3.5 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm sm:text-base py-3.5 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer"
                 >
-                  <MessageCircle className="w-5 h-5 fill-slate-950" />
+                  <img
+                    src="/assets/aistudio/image_c900f1c9.png"
+                    alt="WhatsApp"
+                    className="w-5 h-5 object-contain"
+                  />
                   <span>Enviar e Negociar com Daniela</span>
                 </button>
               </div>

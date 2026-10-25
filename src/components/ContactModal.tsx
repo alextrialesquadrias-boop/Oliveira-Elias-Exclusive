@@ -64,8 +64,12 @@ export const ContactModal: React.FC<ContactModalProps> = ({
               rel="noopener noreferrer"
               className="p-3 bg-emerald-950/60 border border-emerald-500/30 rounded-xl flex items-center gap-3 hover:bg-emerald-900/40 transition-colors"
             >
-              <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0 shadow-sm">
+                <img
+                  src="/assets/aistudio/image_c900f1c9.png"
+                  alt="WhatsApp"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase tracking-wider block">WhatsApp 24h</span>
@@ -149,9 +153,13 @@ export const ContactModal: React.FC<ContactModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm py-3 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm py-3 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer"
               >
-                <MessageCircle className="w-5 h-5 fill-white" />
+                <img
+                  src="/assets/aistudio/image_c900f1c9.png"
+                  alt="WhatsApp"
+                  className="w-5 h-5 object-contain"
+                />
                 <span>Conversar com a Corretora Agora</span>
               </button>
             </form>

@@ -225,9 +225,13 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({ property, onClose 
               href={`https://wa.me/${COMPANY_DATA.phoneRaw}?text=${waMessage}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg transition-all"
             >
-              <MessageCircle className="w-5 h-5 fill-white" />
+              <img
+                src="/assets/aistudio/image_c900f1c9.png"
+                alt="WhatsApp"
+                className="w-5 h-5 object-contain"
+              />
               <span>Falar no WhatsApp sobre este Imóvel</span>
             </a>
           </div>

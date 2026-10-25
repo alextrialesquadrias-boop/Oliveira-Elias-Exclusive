@@ -34,7 +34,7 @@ export const Hero: React.FC<HeroProps> = ({ heroData, filter, onFilterChange, on
   };
 
   return (
-    <section id="inicio" className="relative min-h-[90vh] lg:min-h-[92vh] flex items-center justify-center pt-24 pb-16 lg:pt-28 lg:pb-20 overflow-hidden bg-slate-950">
+    <section id="inicio" className="relative min-h-[90vh] lg:min-h-[92vh] flex items-center justify-center pt-28 pb-16 lg:pt-36 lg:pb-20 overflow-hidden bg-slate-950">
       {/* Background Image with Luxury Overlay */}
       <div className="absolute inset-0 z-0">
         <img

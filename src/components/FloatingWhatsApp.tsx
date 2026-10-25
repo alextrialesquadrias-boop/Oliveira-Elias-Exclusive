@@ -32,9 +32,13 @@ export const FloatingWhatsApp: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Falar no WhatsApp com Daniela de Oliveira Elias"
-        className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-full shadow-2xl shadow-emerald-900/50 hover:shadow-emerald-500/50 transition-all transform hover:scale-110 active:scale-95 border-2 border-white/20"
+        className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-full shadow-2xl shadow-emerald-950/60 hover:shadow-emerald-500/50 transition-all transform hover:scale-110 active:scale-95 border-2 border-emerald-500 p-1"
       >
-        <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8 fill-white" />
+        <img
+          src="/assets/aistudio/image_c900f1c9.png"
+          alt="WhatsApp Oficial Daniela de Oliveira Elias"
+          className="w-full h-full object-contain drop-shadow"
+        />
         
         {/* Radar ping ring */}
         <span className="absolute -inset-1 rounded-full border-2 border-emerald-400/60 animate-ping pointer-events-none opacity-40"></span>

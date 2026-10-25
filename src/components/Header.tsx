@@ -34,32 +34,18 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* Logo & Personal Brand */}
+          {/* Official Company Logo (50% maior) */}
           <button
             onClick={() => handleNavClick('inicio')}
-            className="flex items-center gap-3 text-left group focus:outline-none"
+            className="flex items-center text-left group focus:outline-none cursor-pointer"
+            title="Oliveira Elias Exclusive - Início"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-gradient-to-br from-amber-400 via-amber-500 to-amber-700 p-0.5 shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-              <div className="w-full h-full bg-slate-950 rounded-[7px] flex items-center justify-center">
-                <span className="font-serif font-bold text-lg sm:text-xl text-amber-400 tracking-tight">
-                  OE
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base sm:text-xl tracking-tight text-white group-hover:text-amber-400 transition-colors">
-                  Oliveira Elias
-                </span>
-                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                  Exclusive
-                </span>
-              </div>
-              <p className="text-[11px] sm:text-xs text-slate-300 font-medium tracking-wide flex items-center gap-1">
-                <span>{COMPANY_DATA.broker}</span>
-                <span className="text-amber-400/70">•</span>
-                <span className="text-slate-400">{COMPANY_DATA.creci}</span>
-              </p>
+            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all group-hover:scale-102 flex items-center">
+              <img
+                src="/assets/aistudio/Logotipo_Oliveira_Elias_em_fundo_transparente_2eedaba8.png"
+                alt="Oliveira Elias Exclusive - Consultoria e Negócios Imobiliários"
+                className="h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+              />
             </div>
           </button>
 
@@ -97,9 +83,13 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
               href={`https://wa.me/${COMPANY_DATA.phoneRaw}?text=${encodeURIComponent('Olá Daniela! Gostaria de informações sobre os imóveis para venda em Navegantes/SC.')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-full shadow-lg shadow-emerald-900/30 hover:shadow-emerald-600/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/30"
+              className="inline-flex items-center gap-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-full shadow-lg shadow-emerald-900/30 hover:shadow-emerald-600/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/30"
             >
-              <MessageCircle className="w-4 h-4 fill-white" />
+              <img
+                src="/assets/aistudio/image_c900f1c9.png"
+                alt="WhatsApp"
+                className="w-5 h-5 object-contain"
+              />
               <span>WhatsApp</span>
               <span className="hidden lg:inline text-emerald-100 font-normal">
                 {COMPANY_DATA.phone}
@@ -114,9 +104,13 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="WhatsApp"
-              className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 transition-colors"
+              className="p-1.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 transition-colors flex items-center justify-center"
             >
-              <MessageCircle className="w-4 h-4" />
+              <img
+                src="/assets/aistudio/image_c900f1c9.png"
+                alt="WhatsApp"
+                className="w-5 h-5 object-contain"
+              />
             </a>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -164,7 +158,11 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-md"
                 >
-                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <img
+                    src="/assets/aistudio/image_c900f1c9.png"
+                    alt="WhatsApp"
+                    className="w-5 h-5 object-contain"
+                  />
                   <span>Falar no WhatsApp ({COMPANY_DATA.phone})</span>
                 </a>
                 <p className="text-center text-[11px] text-slate-400 mt-2">

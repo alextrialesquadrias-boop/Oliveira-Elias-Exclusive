@@ -88,10 +88,14 @@ export const LocationSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Telefone / WhatsApp */}
+                {/* Telefone / WhatsApp com Logo Oficial */}
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-                    <Phone className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-950/80 p-2 flex items-center justify-center shrink-0 border border-emerald-500/40">
+                    <img
+                      src="/assets/aistudio/image_c900f1c9.png"
+                      alt="WhatsApp"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div>
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">
@@ -101,7 +105,7 @@ export const LocationSection: React.FC = () => {
                       href={`https://wa.me/${COMPANY_DATA.phoneRaw}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base sm:text-lg font-bold text-white hover:text-amber-400 transition-colors inline-block"
+                      className="text-base sm:text-lg font-bold text-white hover:text-emerald-400 transition-colors inline-block"
                     >
                       {COMPANY_DATA.phone}
                     </a>
