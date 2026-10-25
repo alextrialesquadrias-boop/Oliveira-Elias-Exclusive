@@ -36,7 +36,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
     setTimeout(() => {
       const cleanEmail = email.trim().toLowerCase();
-      if (cleanEmail === 'admin@oliveiraeliasexclusive.com.br' && password === 'admin123') {
+      if (cleanEmail === 'admin@oliveiraeliasexclusive.com.br' && password === '15Trinta#') {
         onLoginSuccess();
       } else {
         setError('E-mail ou senha incorretos. Verifique suas credenciais.');
@@ -47,7 +47,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
   const fillDemoCredentials = () => {
     setEmail('admin@oliveiraeliasexclusive.com.br');
-    setPassword('admin123');
+    setPassword('15Trinta#');
     setError('');
   };
 
@@ -164,7 +164,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 onClick={fillDemoCredentials}
                 className="text-[11px] text-amber-400/80 hover:text-amber-300 underline underline-offset-4 cursor-pointer"
               >
-                Preencher credenciais padrão (admin@oliveiraeliasexclusive.com.br / admin123)
+                Preencher credenciais padrão (admin@oliveiraeliasexclusive.com.br / 15Trinta#)
               </button>
             </div>
           </form>
