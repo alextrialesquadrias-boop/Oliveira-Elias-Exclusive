@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Settings, ShieldCheck, LogOut, Lock } from 'lucide-react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { AboutSection } from './components/AboutSection';
@@ -16,10 +17,48 @@ import { PropertyModal } from './components/PropertyModal';
 import { NegotiateModal } from './components/NegotiateModal';
 import { ContactModal } from './components/ContactModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
-import { PROPERTIES_DATA } from './data/properties';
-import { Property, SearchFilter } from './types';
+import { AdminLoginModal } from './components/AdminLoginModal';
+import { AdminDashboard } from './components/AdminDashboard';
+import {
+  PROPERTIES_DATA,
+  DEFAULT_HERO_DATA,
+  STORAGE_KEY,
+  AUTH_STORAGE_KEY
+} from './data/properties';
+import { Property, SearchFilter, HeroData, SiteData } from './types';
 
 export default function App() {
+  // Load initial customized site data from localStorage (or fallback to defaults)
+  const [siteData, setSiteData] = useState<SiteData>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.hero && Array.isArray(parsed.properties) && parsed.properties.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar dados do localStorage:', e);
+    }
+    return {
+      hero: DEFAULT_HERO_DATA,
+      properties: PROPERTIES_DATA
+    };
+  });
+
+  // Admin authentication state
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
+
   // Search state
   const [filter, setFilter] = useState<SearchFilter>({
     code: '',
@@ -61,15 +100,98 @@ export default function App() {
     }
   };
 
+  // Admin handlers
+  const handleOpenAdmin = () => {
+    if (isAdminLoggedIn) {
+      setIsAdminDashboardOpen(true);
+    } else {
+      setIsAdminLoginOpen(true);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+    } catch (e) {
+      console.warn(e);
+    }
+    setIsAdminLoggedIn(true);
+    setIsAdminLoginOpen(false);
+    setIsAdminDashboardOpen(true);
+  };
+
+  const handleSaveSiteData = (newHero: HeroData, newProperties: Property[]) => {
+    const newData: SiteData = {
+      hero: newHero,
+      properties: newProperties
+    };
+    setSiteData(newData);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+    } catch (e) {
+      console.warn('Erro ao salvar no localStorage:', e);
+    }
+  };
+
+  const handleResetDefaults = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+    const defaultData: SiteData = {
+      hero: DEFAULT_HERO_DATA,
+      properties: PROPERTIES_DATA
+    };
+    setSiteData(defaultData);
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+    setIsAdminLoggedIn(false);
+    setIsAdminDashboardOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       
+      {/* Discreet Admin Top Bar when logged in */}
+      {isAdminLoggedIn && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-slate-950 px-4 py-1.5 text-xs font-bold flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse"></span>
+            <span>Painel do Corretor Ativo • Oliveira Elias Exclusive</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsAdminDashboardOpen(true)}
+              className="bg-slate-950 text-amber-400 hover:text-white px-3 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Editar Conteúdo</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-slate-950 hover:text-red-900 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Cabeçalho Fixo */}
       <Header onNavigate={handleNavigate} />
 
       <main className="flex-grow">
-        {/* 2. Banner Principal (Hero) com Busca */}
+        {/* 2. Banner Principal (Hero) com Busca e Conteúdo Dinâmico */}
         <Hero
+          heroData={siteData.hero}
           filter={filter}
           onFilterChange={handleFilterChange}
           onSearch={handleSearchSubmit}
@@ -78,9 +200,9 @@ export default function App() {
         {/* 3. Seção "A Imobiliária" */}
         <AboutSection />
 
-        {/* 4. Grade de Imóveis em Destaque */}
+        {/* 4. Grade de Imóveis em Destaque (Cards Dinâmicos Editáveis) */}
         <FeaturedProperties
-          properties={PROPERTIES_DATA}
+          properties={siteData.properties}
           searchFilter={filter}
           onSelectProperty={(prop) => setSelectedProperty(prop)}
           onClearFilters={handleClearFilters}
@@ -96,10 +218,11 @@ export default function App() {
         <LocationSection />
       </main>
 
-      {/* 7. Rodapé */}
+      {/* 7. Rodapé com Link Oculto "Acesso Restrito" */}
       <Footer
         onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)}
         onOpenContact={() => setIsContactOpen(true)}
+        onOpenAdmin={handleOpenAdmin}
         onNavigate={handleNavigate}
       />
 
@@ -125,6 +248,24 @@ export default function App() {
       <PrivacyPolicyModal
         isOpen={isPrivacyOpen}
         onClose={() => setIsPrivacyOpen(false)}
+      />
+
+      {/* Admin Login Modal (Acesso Restrito) */}
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Admin Dashboard (Painel de Edição) */}
+      <AdminDashboard
+        isOpen={isAdminDashboardOpen}
+        heroData={siteData.hero}
+        properties={siteData.properties}
+        onSave={handleSaveSiteData}
+        onResetDefaults={handleResetDefaults}
+        onClose={() => setIsAdminDashboardOpen(false)}
+        onLogout={handleLogout}
       />
 
     </div>

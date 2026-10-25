@@ -1,18 +1,36 @@
 import React from 'react';
 import { Search, MapPin, Building, DollarSign, KeyRound, Sparkles } from 'lucide-react';
-import { SearchFilter } from '../types';
+import { SearchFilter, HeroData } from '../types';
 import { PRICE_RANGES, PROPERTY_TYPES } from '../data/properties';
 
 interface HeroProps {
+  heroData: HeroData;
   filter: SearchFilter;
   onFilterChange: (newFilter: Partial<SearchFilter>) => void;
   onSearch: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ filter, onFilterChange, onSearch }) => {
+export const Hero: React.FC<HeroProps> = ({ heroData, filter, onFilterChange, onSearch }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch();
+  };
+
+  // Format title highlighting "Navegantes" if present
+  const renderTitle = (title: string) => {
+    if (title.includes('Navegantes')) {
+      const parts = title.split('Navegantes');
+      return (
+        <>
+          {parts[0]}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
+            Navegantes
+          </span>
+          {parts.slice(1).join('Navegantes')}
+        </>
+      );
+    }
+    return title;
   };
 
   return (
@@ -20,14 +38,14 @@ export const Hero: React.FC<HeroProps> = ({ filter, onFilterChange, onSearch }) 
       {/* Background Image with Luxury Overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=85"
+          src={heroData.bgImageUrl}
           alt="Imóvel de Alto Padrão em Navegantes - Fachada e Living Luxuoso"
           className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-1000"
         />
         {/* Recommended dimension indicator overlay */}
         <div className="absolute top-20 right-4 sm:right-6 bg-slate-950/80 backdrop-blur-md text-[10px] sm:text-xs text-amber-300/90 border border-amber-500/30 px-2.5 py-1 rounded-md shadow-lg hidden sm:flex items-center gap-1.5 z-10">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-          <span>Imagem Hero Recomendada: 1920 × 1080 px</span>
+          <span>Imagem Hero: 1920 × 1080 px</span>
         </div>
 
         {/* Gradient overlays for contrast and luxury mood */}
@@ -44,16 +62,12 @@ export const Hero: React.FC<HeroProps> = ({ filter, onFilterChange, onSearch }) 
 
         {/* Main Title */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.15] mb-5 max-w-4xl mx-auto drop-shadow-md">
-          Encontre o Imóvel dos Seus Sonhos em{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
-            Navegantes
-          </span>
+          {renderTitle(heroData.title)}
         </h1>
 
         {/* Subtitle */}
         <p className="text-sm sm:text-lg text-slate-200 max-w-2xl mx-auto mb-8 sm:mb-10 font-normal leading-relaxed drop-shadow">
-          Consultoria imobiliária personalizada com Daniela de Oliveira Elias (CRECI-SC 71040F).
-          Casas, apartamentos, terrenos e oportunidades comerciais de alto padrão no litoral catarinense.
+          {heroData.subtitle}
         </p>
 
         {/* Search Bar Container */}

@@ -22,6 +22,17 @@ export interface Property {
   tag?: string;
 }
 
+export interface HeroData {
+  title: string;
+  subtitle: string;
+  bgImageUrl: string;
+}
+
+export interface SiteData {
+  hero: HeroData;
+  properties: Property[];
+}
+
 export interface SearchFilter {
   code: string;
   city: string;

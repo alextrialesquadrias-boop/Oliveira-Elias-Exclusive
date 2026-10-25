@@ -1,16 +1,18 @@
 import React from 'react';
-import { Building2, Phone, Mail, Clock, MapPin, Instagram, Facebook, ShieldCheck, ArrowUp } from 'lucide-react';
+import { Building2, Phone, Mail, Clock, MapPin, Instagram, Facebook, ShieldCheck, ArrowUp, Lock } from 'lucide-react';
 import { COMPANY_DATA } from '../data/properties';
 
 interface FooterProps {
   onOpenPrivacyPolicy: () => void;
   onOpenContact: () => void;
+  onOpenAdmin: () => void;
   onNavigate: (sectionId: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onOpenPrivacyPolicy,
   onOpenContact,
+  onOpenAdmin,
   onNavigate
 }) => {
   const scrollToTop = () => {
@@ -199,7 +201,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         </div>
 
-        {/* Linha Final Obrigatória */}
+        {/* Linha Final Obrigatória e Acesso Restrito Oculto */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p className="text-center sm:text-left font-medium">
             www.oliveiraeliasexclusive.com.br © 2026. Todos os direitos reservados.
@@ -209,9 +211,22 @@ export const Footer: React.FC<FooterProps> = ({
             <span className="text-[11px] text-slate-400">
               Navegantes – SC
             </span>
+
+            {/* Acesso Oculto / Restrito para o corretor */}
+            <span className="text-slate-800">•</span>
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="text-slate-500 hover:text-amber-400 transition-colors text-[11px] inline-flex items-center gap-1 focus:outline-none cursor-pointer"
+              title="Acesso Restrito ao Painel do Corretor"
+            >
+              <Lock className="w-3 h-3 text-slate-500" />
+              <span>Acesso Restrito</span>
+            </button>
+
             <button
               onClick={scrollToTop}
-              className="p-2 rounded-lg bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-800 transition-colors"
+              className="p-2 rounded-lg bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-800 transition-colors cursor-pointer"
               aria-label="Voltar ao Topo"
               title="Voltar ao Topo"
             >

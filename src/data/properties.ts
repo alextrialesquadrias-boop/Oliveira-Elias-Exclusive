@@ -1,4 +1,13 @@
-import { Property } from '../types';
+import { Property, HeroData } from '../types';
+
+export const STORAGE_KEY = 'oe_exclusive_site_data';
+export const AUTH_STORAGE_KEY = 'oe_exclusive_admin_auth';
+
+export const DEFAULT_HERO_DATA: HeroData = {
+  title: "Encontre o Imóvel dos Seus Sonhos em Navegantes",
+  subtitle: "Consultoria imobiliária personalizada com Daniela de Oliveira Elias (CRECI-SC 71040F). Casas, apartamentos, terrenos e oportunidades comerciais de alto padrão no litoral catarinense.",
+  bgImageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=85"
+};
 
 export const COMPANY_DATA = {
   tradeName: "Oliveira Elias Exclusive",
