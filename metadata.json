@@ -1,0 +1,6 @@
+{
+  "name": "Oliveira Elias Exclusive",
+  "description": "Consultoria e Negócios Imobiliários de Alto Padrão em Navegantes/SC. Venda exclusiva de imóveis com a corretora Daniela de Oliveira Elias (CRECI-SC 71040F).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
