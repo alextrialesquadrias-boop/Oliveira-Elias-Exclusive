@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Save,
@@ -141,6 +141,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isUploadingFormImg, setIsUploadingFormImg] = useState(false);
   const [formImgProgress, setFormImgProgress] = useState(0);
   const [formImgError, setFormImgError] = useState<string | null>(null);
+
+  // Vercel Blob token status check from server
+  const [isBlobConfigured, setIsBlobConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/blob/status')
+      .then((res) => res.json())
+      .then((data) => {
+        setIsBlobConfigured(Boolean(data.configured));
+      })
+      .catch(() => {
+        setIsBlobConfigured(false);
+      });
+  }, []);
 
   // Suggestions for high-res real estate banner images
   const bannerPresets = [
@@ -391,20 +405,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       setFormData((prev) => ({ ...prev, imageUrl: publicUrl }));
-      setToastMessage('Foto enviada com sucesso para o Vercel Blob!');
+      const isCloud = isVercelBlobUrl(publicUrl);
+      setToastMessage(
+        isCloud
+          ? 'Foto enviada com sucesso para o Vercel Blob!'
+          : 'Foto carregada com sucesso!'
+      );
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 3500);
     } catch (err: any) {
       console.error('Erro no upload da foto do imóvel:', err);
-      setFormImgError(err?.message || 'Falha no upload para o Vercel Blob.');
-      // Fallback preview
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result) {
-          setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
-        }
-      };
-      reader.readAsDataURL(file);
+      setFormImgError(err?.message || 'Falha no upload da imagem.');
     } finally {
       setIsUploadingFormImg(false);
       e.target.value = '';
@@ -439,12 +450,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDraftHero(updatedHero);
       onSave(updatedHero, draftProperties, draftAbout);
 
-      setToastMessage('Upload do Banner concluído e imagem anterior removida do Vercel Blob!');
+      const isCloud = isVercelBlobUrl(publicUrl);
+      setToastMessage(
+        isCloud
+          ? 'Upload do Banner concluído e salvo no Vercel Blob!'
+          : 'Banner atualizado com sucesso!'
+      );
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
     } catch (err: any) {
       console.error('Erro no upload Vercel Blob do banner:', err);
-      setHeroUploadError(err?.message || 'Falha no upload para o Vercel Blob.');
+      setHeroUploadError(err?.message || 'Falha no upload do banner.');
     } finally {
       setIsUploadingHero(false);
       e.target.value = '';
@@ -483,12 +499,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDraftAbout(updatedAbout);
       onSave(draftHero, draftProperties, updatedAbout);
 
-      setToastMessage('Foto da corretora enviada para o Vercel Blob e imagem antiga removida!');
+      const isCloud = isVercelBlobUrl(publicUrl);
+      setToastMessage(
+        isCloud
+          ? 'Foto da corretora salva com sucesso no Vercel Blob!'
+          : 'Foto da corretora atualizada com sucesso!'
+      );
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
     } catch (err: any) {
       console.error('Erro no upload da foto da corretora para Vercel Blob:', err);
-      setAboutImgError(err?.message || 'Falha no upload para o Vercel Blob.');
+      setAboutImgError(err?.message || 'Falha no upload da foto da corretora.');
     } finally {
       setIsUploadingAboutImg(false);
       e.target.value = '';
@@ -564,11 +585,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-white text-base">Painel Administrativo</span>
                 <span className="text-[10px] uppercase font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded">
                   Área do Corretor
                 </span>
+                {isBlobConfigured === true ? (
+                  <span className="text-[10px] uppercase font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Vercel Blob Ativo
+                  </span>
+                ) : isBlobConfigured === false ? (
+                  <span
+                    className="text-[10px] uppercase font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded flex items-center gap-1.5"
+                    title="Defina BLOB_READ_WRITE_TOKEN no .env para upload em nuvem na Vercel"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Armazenamento Local
+                  </span>
+                ) : null}
               </div>
               <p className="text-[11px] text-slate-400">
                 Gerencie imóveis dinâmicos, textos e fotos do site em tempo real.

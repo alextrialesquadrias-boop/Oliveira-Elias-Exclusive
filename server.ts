@@ -7,6 +7,7 @@ import { del } from '@vercel/blob';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 
 dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,15 +29,16 @@ async function startServer() {
     res.json({ configured: hasToken });
   });
 
-  // Vercel Blob client upload handler
-  // Implements the client-upload token generation and webhook handling
-  app.post('/api/blob/upload', async (req, res) => {
+  // Vercel Blob client upload handler using handleUpload from @vercel/blob/client
+  // Generates client token for direct client-to-blob uploads
+  const handleBlobUpload = async (req: express.Request, res: express.Response) => {
     const body = req.body as HandleUploadBody;
 
     try {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
 
       if (!token) {
+        console.warn('[Vercel Blob] Atenção: BLOB_READ_WRITE_TOKEN não configurado no servidor.');
         return res.status(400).json({
           error:
             'A variável de ambiente BLOB_READ_WRITE_TOKEN não foi configurada no servidor. Por favor, configure o token do Vercel Blob no arquivo .env.',
@@ -48,7 +50,7 @@ async function startServer() {
         body,
         request: req,
         token,
-        onBeforeGenerateToken: async (pathname /*, clientPayload, multipart */) => {
+        onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
           return {
             allowedContentTypes: [
               'image/jpeg',
@@ -58,10 +60,12 @@ async function startServer() {
               'image/svg+xml',
               'image/avif'
             ],
-            maximumSizeInBytes: 50 * 1024 * 1024, // 50MB (bypasses server function limit via direct client upload)
+            maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
             tokenPayload: JSON.stringify({
               source: 'oliveira-elias-exclusive-admin',
-              pathname
+              pathname,
+              clientPayload: clientPayload || null,
+              multipart
             })
           };
         },
@@ -72,12 +76,16 @@ async function startServer() {
 
       return res.json(jsonResponse);
     } catch (error) {
-      console.error('[Vercel Blob] Erro no endpoint /api/blob/upload:', error);
+      console.error('[Vercel Blob] Erro no endpoint handleUpload:', error);
       return res.status(400).json({
         error: (error as Error).message || 'Erro ao processar upload no Vercel Blob'
       });
     }
-  });
+  };
+
+  // Mount on both /api/upload (standard Vercel Blob convention) and /api/blob/upload
+  app.post('/api/upload', handleBlobUpload);
+  app.post('/api/blob/upload', handleBlobUpload);
 
   // Vercel Blob permanent deletion endpoint
   // Deletes one or multiple images permanently from Vercel Blob storage using del()

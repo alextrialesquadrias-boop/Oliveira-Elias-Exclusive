@@ -5,13 +5,28 @@ export interface UploadProgressCallback {
 }
 
 /**
+ * Checks whether the server has BLOB_READ_WRITE_TOKEN configured.
+ */
+export async function checkBlobStorageStatus(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/blob/status');
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.configured);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Uploads an image file directly from the client to Vercel Blob.
- * Uses client-side upload via the `/api/blob/upload` route to avoid Vercel Function size limits.
+ * Uses client-side direct upload via handleUpload at `/api/upload` to bypass server function limits.
+ * If BLOB_READ_WRITE_TOKEN is not configured on the server, falls back to local data URL preview.
  *
  * @param file The image File selected by the user.
- * @param folder Subfolder path ('hero' | 'imoveis').
+ * @param folder Subfolder path ('hero' | 'imoveis' | 'sobre').
  * @param onProgress Callback function reporting percentage (0-100).
- * @returns The public URL of the uploaded blob.
+ * @returns The public URL of the uploaded blob (or base64 preview if local).
  */
 export async function uploadImageToVercelBlob(
   file: File,
@@ -36,10 +51,41 @@ export async function uploadImageToVercelBlob(
   const sanitizedOriginalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
   const pathname = `oliveira-elias/${folder}/${Date.now()}-${sanitizedOriginalName}`;
 
+  // Check if Vercel Blob token is configured on the server
+  const isConfigured = await checkBlobStorageStatus();
+
+  if (!isConfigured) {
+    console.warn(
+      '[Vercel Blob] BLOB_READ_WRITE_TOKEN não está configurado no servidor. Utilizando pré-visualização local.'
+    );
+
+    // Provide smooth progress feedback for local preview
+    if (onProgress) {
+      onProgress(35);
+      await new Promise((r) => setTimeout(r, 80));
+      onProgress(85);
+      await new Promise((r) => setTimeout(r, 80));
+      onProgress(100);
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Falha ao processar a imagem local.'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Erro na leitura do arquivo local.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   try {
     const blob = await upload(pathname, file, {
       access: 'public',
-      handleUploadUrl: '/api/blob/upload',
+      handleUploadUrl: '/api/upload',
       onUploadProgress: (progress) => {
         if (onProgress) {
           onProgress(Math.round(progress.percentage));
@@ -50,6 +96,17 @@ export async function uploadImageToVercelBlob(
     return blob.url;
   } catch (err: any) {
     console.error('Falha no upload para Vercel Blob:', err);
+
+    const errorMessage = String(err?.message || '');
+    if (
+      errorMessage.includes('retrieve the client token') ||
+      errorMessage.includes('Failed to retrieve')
+    ) {
+      throw new Error(
+        'Falha ao obter o token do Vercel Blob. Verifique se a variável BLOB_READ_WRITE_TOKEN está configurada e válida no arquivo .env.'
+      );
+    }
+
     throw err;
   }
 }
