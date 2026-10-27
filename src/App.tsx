@@ -193,8 +193,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 1. Cabeçalho Fixo */}
-      <Header onNavigate={handleNavigate} />
+      {/* 1. Cabeçalho Fixo com Foto da Corretora Dinâmica e Logo */}
+      <Header
+        onNavigate={handleNavigate}
+        brokerImageUrl={siteData.about.brokerImageUrl}
+      />
 
       <main className="flex-grow">
         {/* 2. Banner Principal (Hero) com Busca e Conteúdo Dinâmico */}

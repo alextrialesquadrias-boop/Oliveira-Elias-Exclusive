@@ -1,14 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Menu, X, Phone, Building2, ShieldCheck } from 'lucide-react';
-import { COMPANY_DATA } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA, STORAGE_KEY } from '../data/properties';
 
 interface HeaderProps {
   onNavigate: (sectionId: string) => void;
+  brokerImageUrl?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
+export const Header: React.FC<HeaderProps> = ({ onNavigate, brokerImageUrl }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // FOTO DA CORRETORA: Carregada dinamicamente via prop (App.tsx -> siteData.about.brokerImageUrl)
+  // ou diretamente do localStorage ('oe_exclusive_site_data' configurado no Painel Administrativo).
+  // Caso deseje buscar de outra API/banco no futuro, substitua ou atualize esta variável de estado.
+  const [fotoCorretora, setFotoCorretora] = useState<string>(() => {
+    if (brokerImageUrl) return brokerImageUrl;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.about?.brokerImageUrl) {
+          return parsed.about.brokerImageUrl;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar foto da corretora do localStorage:', e);
+    }
+    return DEFAULT_ABOUT_DATA.brokerImageUrl;
+  });
+
+  // Mantém a foto sincronizada em tempo real quando alterada no Painel Administrativo
+  useEffect(() => {
+    if (brokerImageUrl) {
+      setFotoCorretora(brokerImageUrl);
+    }
+  }, [brokerImageUrl]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,18 +61,37 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* Official Company Logo with 3D Entrance */}
+          {/* Caixa de Marca Oficial: Foto da Corretora + Logo Oficial lado a lado */}
           <button
             onClick={() => handleNavClick('inicio')}
-            className="flex items-center text-left focus:outline-none cursor-pointer"
+            className="flex items-center text-left focus:outline-none cursor-pointer group"
             title="Oliveira Elias Exclusive — Início"
           >
-            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center [perspective:1000px]">
+            <div className="bg-white/95 hover:bg-white rounded-2xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center gap-2.5 sm:gap-3 overflow-visible">
+              
+              {/* Foto da Corretora (lado esquerdo) - Dinâmica */}
+              <div className="relative flex-shrink-0">
+                <img
+                  src={fotoCorretora}
+                  alt={`Foto da Corretora ${COMPANY_DATA.broker} - Oliveira Elias Exclusive`}
+                  loading="eager"
+                  decoding="async"
+                  className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg object-cover object-top border border-amber-400/40 shadow-sm"
+                  onError={(e) => {
+                    // Fallback para a foto padrão caso a URL externa falhe
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_ABOUT_DATA.brokerImageUrl;
+                  }}
+                />
+              </div>
+
+              {/* Logo Oficial da Empresa (lado direito) com animação flutuante */}
               <img
                 src="/logo-oliveira-elias.png"
                 alt="Oliveira Elias Exclusive — Negócios Imobiliários"
+                loading="eager"
+                decoding="async"
                 fetchPriority="high"
-                className="logo-entrada-3d logo-3d-interactive h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+                className="logo-animada inline-block h-9 sm:h-11 md:h-12 w-auto object-contain max-w-[170px] sm:max-w-[280px] md:max-w-[340px]"
               />
             </div>
           </button>
