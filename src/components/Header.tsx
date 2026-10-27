@@ -34,17 +34,17 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* Official Company Logo (50% maior) */}
+          {/* Official Company Logo with 3D Entrance */}
           <button
             onClick={() => handleNavClick('inicio')}
-            className="flex items-center text-left group focus:outline-none cursor-pointer"
+            className="flex items-center text-left focus:outline-none cursor-pointer"
             title="Oliveira Elias Exclusive - Início"
           >
-            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all group-hover:scale-102 flex items-center">
+            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center [perspective:1200px]">
               <img
                 src="/assets/aistudio/Logotipo_Oliveira_Elias_em_fundo_transparente_2eedaba8.png"
                 alt="Oliveira Elias Exclusive - Consultoria e Negócios Imobiliários"
-                className="logo-3d-entrance h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+                className="logo-3d-entrance logo-3d-interactive h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
               />
             </div>
           </button>

@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { del } from '@vercel/blob';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 
 dotenv.config();
@@ -77,6 +78,88 @@ async function startServer() {
       });
     }
   });
+
+  // Vercel Blob permanent deletion endpoint
+  // Deletes one or multiple images permanently from Vercel Blob storage using del()
+  const handleDeleteBlob = async (req: express.Request, res: express.Response) => {
+    try {
+      const { url, urls } = req.body || {};
+      const targets: string[] = [];
+
+      if (typeof url === 'string' && url.trim()) {
+        targets.push(url.trim());
+      }
+      if (Array.isArray(urls)) {
+        for (const u of urls) {
+          if (typeof u === 'string' && u.trim()) {
+            targets.push(u.trim());
+          }
+        }
+      }
+
+      if (targets.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Nenhuma URL de imagem foi fornecida para exclusão.'
+        });
+      }
+
+      // Filter only authentic Vercel Blob storage URLs to avoid unnecessary external API calls
+      const isVercelBlob = (targetUrl: string) => {
+        return (
+          typeof targetUrl === 'string' &&
+          (targetUrl.includes('.blob.vercel-storage.com') ||
+            targetUrl.includes('vercel-storage.com'))
+        );
+      };
+
+      const blobUrlsToDelete = targets.filter(isVercelBlob);
+
+      if (blobUrlsToDelete.length === 0) {
+        return res.json({
+          success: true,
+          deleted: false,
+          count: 0,
+          message: 'As URLs fornecidas não são do Vercel Blob (nenhuma exclusão de armazenamento necessária).'
+        });
+      }
+
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+      if (!token) {
+        console.warn('[Vercel Blob Delete] BLOB_READ_WRITE_TOKEN não configurado no servidor.');
+        return res.json({
+          success: false,
+          deleted: false,
+          count: 0,
+          warning: 'BLOB_READ_WRITE_TOKEN não configurado no ambiente do servidor.'
+        });
+      }
+
+      // Permanent deletion via @vercel/blob del()
+      await del(blobUrlsToDelete, { token });
+      console.log('[Vercel Blob Delete] Imagem(ns) excluída(s) permanentemente com sucesso:', blobUrlsToDelete);
+
+      return res.json({
+        success: true,
+        deleted: true,
+        count: blobUrlsToDelete.length,
+        deletedUrls: blobUrlsToDelete
+      });
+    } catch (error: any) {
+      console.warn('[Vercel Blob Delete] Aviso/erro ao tentar excluir blob(s):', error?.message || error);
+      // Respond gracefully with 200 so client actions never break
+      return res.json({
+        success: false,
+        deleted: false,
+        error: error?.message || 'Falha ao excluir imagem do Vercel Blob'
+      });
+    }
+  };
+
+  app.post('/api/delete-blob', handleDeleteBlob);
+  app.delete('/api/delete-blob', handleDeleteBlob);
+  app.post('/api/blob/delete', handleDeleteBlob);
+  app.delete('/api/blob/delete', handleDeleteBlob);
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));

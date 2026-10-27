@@ -34,7 +34,11 @@ import {
 } from 'lucide-react';
 import { HeroData, Property, SiteData } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { uploadImageToVercelBlob } from '../utils/blobUpload';
+import {
+  uploadImageToVercelBlob,
+  deleteImageFromVercelBlob,
+  isVercelBlobUrl
+} from '../utils/blobUpload';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -116,6 +120,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [formData, setFormData] = useState<PropertyFormState>(emptyFormState);
   const [formError, setFormError] = useState<string | null>(null);
+  const [originalPropertyImage, setOriginalPropertyImage] = useState<string | null>(null);
 
   // Vercel Blob Upload states
   const [isUploadingHero, setIsUploadingHero] = useState(false);
@@ -178,6 +183,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
       type: adminCategory === 'Casas' ? 'Casa' : adminCategory === 'Terrenos' ? 'Terreno' : adminCategory === 'Comerciais' ? 'Comercial' : 'Apartamento'
     });
+    setOriginalPropertyImage(null);
     setFormMode('create');
     setFormImgError(null);
     setFormError(null);
@@ -186,6 +192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Open Form to Edit Existing Property
   const handleOpenEditProperty = (prop: Property) => {
+    const currentImg = prop.images?.[0]?.url || '';
     setFormData({
       id: prop.id,
       code: prop.code,
@@ -197,11 +204,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       bathrooms: prop.bathrooms ?? 0,
       parkingSpots: prop.parkingSpots ?? 0,
       areaM2: prop.areaM2,
-      imageUrl: prop.images?.[0]?.url || '',
+      imageUrl: currentImg,
       featured: Boolean(prop.featured),
       tag: prop.tag || '',
       description: prop.description
     });
+    setOriginalPropertyImage(currentImg);
     setFormMode('edit');
     setFormImgError(null);
     setFormError(null);
@@ -254,7 +262,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onSave(draftHero, updated);
       setToastMessage(`Imóvel ${newProp.code} cadastrado com sucesso!`);
     } else {
-      // Edit existing
+      // Edit existing property: if image changed and previous was on Vercel Blob, delete the old one
+      if (originalPropertyImage && isVercelBlobUrl(originalPropertyImage)) {
+        const currentUrl = formData.imageUrl.trim();
+        if (currentUrl !== originalPropertyImage) {
+          deleteImageFromVercelBlob(originalPropertyImage).catch((delErr) => {
+            console.warn('[Vercel Blob] Erro ao deletar imagem substituída do imóvel:', delErr);
+          });
+        }
+      }
+
       const updated = draftProperties.map((p) => {
         if (p.id === formData.id) {
           return {
@@ -294,13 +311,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsFormModalOpen(false);
   };
 
-  // Direct and instantaneous property deletion without any window.confirm / popup
+  // Direct and instantaneous property deletion with permanent Vercel Blob cleanup
   const handleDeleteDirect = (id: string, code?: string) => {
+    // 1. Identify and extract Vercel Blob image URLs associated with this property
+    const propToDelete = draftProperties.find((p) => p.id === id);
+    const blobImagesToDelete: string[] = [];
+
+    if (propToDelete?.images) {
+      for (const img of propToDelete.images) {
+        if (img.url && isVercelBlobUrl(img.url)) {
+          blobImagesToDelete.push(img.url);
+        }
+      }
+    }
+
+    // 2. Call Vercel Blob permanent deletion asynchronously (never blocks UI if network fails)
+    if (blobImagesToDelete.length > 0) {
+      deleteImageFromVercelBlob(blobImagesToDelete).catch((err) => {
+        console.warn('[Vercel Blob] Erro ao excluir imagem(ns) do imóvel no storage:', err);
+      });
+    }
+
+    // 3. Remove property from state and sync to localStorage
     const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
     onSave(draftHero, updated);
 
-    setToastMessage(`Imóvel ${code ? code : ''} excluído com sucesso!`);
+    setToastMessage(
+      blobImagesToDelete.length > 0
+        ? `Imóvel ${code ? code : ''} e imagem excluídos permanentemente!`
+        : `Imóvel ${code ? code : ''} excluído com sucesso!`
+    );
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
 
@@ -314,19 +355,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     handleDeleteDirect(propertyToDelete.id, propertyToDelete.code);
   };
 
-  // Upload Property Form Image to Vercel Blob
+  // Upload Property Form Image to Vercel Blob with old image deletion
   const handleFormImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const previousImageUrl = formData.imageUrl;
 
     setIsUploadingFormImg(true);
     setFormImgProgress(0);
     setFormImgError(null);
 
     try {
+      // 1. If previous image was on Vercel Blob, delete it to keep within Hobby free tier
+      if (isVercelBlobUrl(previousImageUrl)) {
+        deleteImageFromVercelBlob(previousImageUrl).catch((delErr) => {
+          console.warn('[Vercel Blob] Aviso ao excluir imagem anterior durante upload de nova foto:', delErr);
+        });
+      }
+
+      // 2. Upload new image directly to Vercel Blob
       const publicUrl = await uploadImageToVercelBlob(file, 'imoveis', (percent) => {
         setFormImgProgress(percent);
       });
+
       setFormData((prev) => ({ ...prev, imageUrl: publicUrl }));
       setToastMessage('Foto enviada com sucesso para o Vercel Blob!');
       setShowSavedToast(true);
@@ -348,16 +400,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Upload Hero background to Vercel Blob
+  // Upload Hero background to Vercel Blob with old banner deletion
   const handleHeroFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const previousBannerUrl = draftHero.bgImageUrl;
 
     setIsUploadingHero(true);
     setHeroProgress(0);
     setHeroUploadError(null);
 
     try {
+      // 1. If previous banner was on Vercel Blob, permanently delete it
+      if (isVercelBlobUrl(previousBannerUrl)) {
+        deleteImageFromVercelBlob(previousBannerUrl).catch((delErr) => {
+          console.warn('[Vercel Blob] Erro ao excluir banner antigo do Vercel Blob:', delErr);
+        });
+      }
+
+      // 2. Upload new banner to Vercel Blob
       const publicUrl = await uploadImageToVercelBlob(file, 'hero', (percent) => {
         setHeroProgress(percent);
       });
@@ -366,7 +428,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDraftHero(updatedHero);
       onSave(updatedHero, draftProperties);
 
-      setToastMessage('Upload do Banner para Vercel Blob concluído e salvo!');
+      setToastMessage('Upload do Banner concluído e imagem anterior removida do Vercel Blob!');
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
     } catch (err: any) {
@@ -383,6 +445,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSaveAll = () => {
+    // If the banner was replaced with another URL and the original was on Vercel Blob, delete the old one
+    if (isVercelBlobUrl(heroData.bgImageUrl) && draftHero.bgImageUrl !== heroData.bgImageUrl) {
+      deleteImageFromVercelBlob(heroData.bgImageUrl).catch((delErr) => {
+        console.warn('[Vercel Blob] Erro ao excluir banner anterior após salvar:', delErr);
+      });
+    }
+
     onSave(draftHero, draftProperties);
     setToastMessage('Todas as alterações foram salvas com sucesso no site e no localStorage!');
     setShowSavedToast(true);
