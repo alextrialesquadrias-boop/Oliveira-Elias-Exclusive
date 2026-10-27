@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oliveira Elias Exclusive — Animação 3D da Logo</title>
+
+  <style>
+    /* ===== CONFIGURAÇÕES GERAIS ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      font-family: Arial, Helvetica, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== CONTAINER DA INTRO ===== */
+    .intro-logo {
+      position: relative;
+      width: 100%;
+      min-height: clamp(280px, 42vw, 620px);
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      padding: clamp(24px, 5vw, 80px) 16px;
+      overflow: hidden;
+      isolation: isolate;
+
+      background:
+        radial-gradient(
+          ellipse at center,
+          rgba(18, 34, 62, 0.28) 0%,
+          rgba(10, 10, 10, 0.96) 65%,
+          #0a0a0a 100%
+        );
+    }
+
+    /* Brilho ambiente discreto */
+    .intro-logo::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+
+      background: radial-gradient(
+        ellipse at center,
+        rgba(198, 155, 55, 0.07) 0%,
+        transparent 60%
+      );
+    }
+
+    /* ===== LOGO ORIGINAL ===== */
+    .intro-logo img {
+      display: block;
+
+      width: min(92%, 1500px);
+      height: auto;
+      max-height: 75vh;
+      object-fit: contain;
+
+      /* Estado inicial e animação de entrada */
+      opacity: 0;
+
+      transform:
+        perspective(1000px)
+        rotateX(14deg)
+        rotateY(-18deg)
+        translateZ(-180px)
+        scale(0.72);
+
+      transform-origin: center center;
+      backface-visibility: hidden;
+
+      filter:
+        drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+
+      animation:
+        logoEntrada3D 1.9s
+        cubic-bezier(0.16, 1, 0.3, 1)
+        0.2s forwards;
+    }
+
+    /* ===== ANIMAÇÃO 3D ===== */
+    @keyframes logoEntrada3D {
+      0% {
+        opacity: 0;
+
+        transform:
+          perspective(1000px)
+          rotateX(14deg)
+          rotateY(-18deg)
+          translateZ(-180px)
+          scale(0.72);
+
+        filter:
+          drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+      }
+
+      55% {
+        opacity: 1;
+
+        transform:
+          perspective(1000px)
+          rotateX(-3deg)
+          rotateY(5deg)
+          translateZ(25px)
+          scale(1.035);
+
+        filter:
+          drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42))
+          drop-shadow(0 0 12px rgba(201, 163, 72, 0.10));
+      }
+
+      78% {
+        opacity: 1;
+
+        transform:
+          perspective(1000px)
+          rotateX(1deg)
+          rotateY(-1deg)
+          translateZ(0)
+          scale(0.99);
+
+        filter:
+          drop-shadow(0 12px 18px rgba(0, 0, 0, 0.34))
+          drop-shadow(0 0 8px rgba(201, 163, 72, 0.08));
+      }
+
+      100% {
+        opacity: 1;
+
+        transform:
+          perspective(1000px)
+          rotateX(0deg)
+          rotateY(0deg)
+          translateZ(0)
+          scale(1);
+
+        filter:
+          drop-shadow(0 10px 16px rgba(0, 0, 0, 0.28));
+      }
+    }
+
+    /* ===== RESPONSIVIDADE ===== */
+    @media (max-width: 768px) {
+      .intro-logo {
+        min-height: 280px;
+        padding: 36px 14px;
+      }
+
+      .intro-logo img {
+        width: 96%;
+        max-height: 60vh;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .intro-logo {
+        min-height: 220px;
+        padding: 28px 10px;
+      }
+
+      .intro-logo img {
+        width: 100%;
+      }
+    }
+
+    /* ===== ACESSIBILIDADE ===== */
+    @media (prefers-reduced-motion: reduce) {
+      .intro-logo img {
+        animation: none;
+        opacity: 1;
+        transform: none;
+        filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.25));
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="intro-logo">
+    <img
+      src="/logo-oliveira-elias.png"
+      alt="Oliveira Elias Exclusive — Negócios Imobiliários"
+      fetchpriority="high"
+    >
+  </header>
+
+</body>
+</html>

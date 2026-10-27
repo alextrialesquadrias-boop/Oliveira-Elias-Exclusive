@@ -1,61 +1,111 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   3D Entrance & Interactive Transformation for Official Company Logo
-   Exclusively applied to the <img> element in the header navbar.
+   ANIMAÇÃO 3D DA LOGO OFICIAL (OLIVEIRA ELIAS EXCLUSIVE)
+   Conforme especificação exata: perspectiva 1000px, 1.9s, cubic-bezier(0.16, 1, 0.3, 1)
    ========================================================================== */
 
-@keyframes logo3dEntrance {
+@keyframes logoEntrada3D {
   0% {
     opacity: 0;
-    transform: perspective(1200px) translate3d(0, 16px, -180px) rotateX(16deg) rotateY(-14deg) scale(0.85);
-    filter: drop-shadow(0 20px 24px rgba(15, 23, 42, 0.30));
+    transform:
+      perspective(1000px)
+      rotateX(14deg)
+      rotateY(-18deg)
+      translateZ(-180px)
+      scale(0.72);
+    filter:
+      drop-shadow(0 0 0 rgba(0, 0, 0, 0));
   }
-  62% {
+
+  55% {
     opacity: 1;
-    transform: perspective(1200px) translate3d(0, -2px, 20px) rotateX(-2deg) rotateY(2deg) scale(1.018);
-    filter: drop-shadow(0 10px 16px rgba(15, 23, 42, 0.20));
+    transform:
+      perspective(1000px)
+      rotateX(-3deg)
+      rotateY(5deg)
+      translateZ(25px)
+      scale(1.035);
+    filter:
+      drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42))
+      drop-shadow(0 0 12px rgba(201, 163, 72, 0.10));
   }
-  84% {
-    transform: perspective(1200px) translate3d(0, 0, 0px) rotateX(0.6deg) rotateY(-0.6deg) scale(0.997);
-    filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.12));
+
+  78% {
+    opacity: 1;
+    transform:
+      perspective(1000px)
+      rotateX(1deg)
+      rotateY(-1deg)
+      translateZ(0)
+      scale(0.99);
+    filter:
+      drop-shadow(0 12px 18px rgba(0, 0, 0, 0.34))
+      drop-shadow(0 0 8px rgba(201, 163, 72, 0.08));
   }
+
   100% {
     opacity: 1;
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));
+    transform:
+      perspective(1000px)
+      rotateX(0deg)
+      rotateY(0deg)
+      translateZ(0)
+      scale(1);
+    filter:
+      drop-shadow(0 10px 16px rgba(0, 0, 0, 0.28));
   }
 }
 
+/* Compatibilidade com ambas classes (.logo-entrada-3d e .logo-3d-entrance) */
+.logo-entrada-3d,
 .logo-3d-entrance {
-  animation: logo3dEntrance 1.9s cubic-bezier(0.16, 1, 0.3, 1) 0.15s 1 normal both;
-  will-change: transform, opacity;
-  transform-style: preserve-3d;
+  opacity: 0;
+  transform:
+    perspective(1000px)
+    rotateX(14deg)
+    rotateY(-18deg)
+    translateZ(-180px)
+    scale(0.72);
+  transform-origin: center center;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform-origin: center center;
+  filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  animation:
+    logoEntrada3D 1.9s
+    cubic-bezier(0.16, 1, 0.3, 1)
+    0.2s forwards;
+  will-change: transform, opacity, filter;
 }
 
-/* Subtle high-end interactive 3D micro-movement on hover after entrance */
+/* Microinteração elegante 3D ao passar o mouse após a acomodação */
 @media (hover: hover) and (pointer: fine) {
   .logo-3d-interactive {
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .logo-3d-interactive:hover {
-    transform: perspective(1200px) translate3d(0, -2px, 14px) rotateX(3deg) rotateY(-3.5deg) scale(1.02) !important;
-    filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.22)) !important;
+    transform:
+      perspective(1000px)
+      rotateX(2.5deg)
+      rotateY(-3deg)
+      translateZ(12px)
+      scale(1.02) !important;
+    filter:
+      drop-shadow(0 12px 20px rgba(0, 0, 0, 0.36))
+      drop-shadow(0 0 10px rgba(201, 163, 72, 0.12)) !important;
   }
 }
 
-/* Accessibility: respect user preference for reduced motion */
+/* Acessibilidade: respeito à preferência de redução de movimento */
 @media (prefers-reduced-motion: reduce) {
+  .logo-entrada-3d,
   .logo-3d-entrance,
   .logo-3d-interactive,
   .logo-3d-interactive:hover {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
-    filter: none !important;
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.25)) !important;
     transition: none !important;
   }
 }

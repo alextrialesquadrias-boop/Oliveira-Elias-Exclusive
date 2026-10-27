@@ -31,7 +31,7 @@ export const Footer: React.FC<FooterProps> = ({
             <div className="flex items-center">
               <div className="bg-white/95 rounded-2xl px-4 py-2 shadow-md border border-amber-400/40 inline-flex items-center">
                 <img
-                  src="/assets/aistudio/Logotipo_Oliveira_Elias_em_fundo_transparente_2eedaba8.png"
+                  src="/logo-oliveira-elias.png"
                   alt="Oliveira Elias Exclusive"
                   className="h-[60px] w-auto object-contain max-w-[360px]"
                 />

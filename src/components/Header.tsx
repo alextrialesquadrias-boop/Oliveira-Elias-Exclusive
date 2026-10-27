@@ -38,13 +38,14 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
           <button
             onClick={() => handleNavClick('inicio')}
             className="flex items-center text-left focus:outline-none cursor-pointer"
-            title="Oliveira Elias Exclusive - Início"
+            title="Oliveira Elias Exclusive — Início"
           >
-            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center [perspective:1200px]">
+            <div className="bg-white/95 hover:bg-white rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center [perspective:1000px]">
               <img
-                src="/assets/aistudio/Logotipo_Oliveira_Elias_em_fundo_transparente_2eedaba8.png"
-                alt="Oliveira Elias Exclusive - Consultoria e Negócios Imobiliários"
-                className="logo-3d-entrance logo-3d-interactive h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+                src="/logo-oliveira-elias.png"
+                alt="Oliveira Elias Exclusive — Negócios Imobiliários"
+                fetchPriority="high"
+                className="logo-entrada-3d logo-3d-interactive h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
               />
             </div>
           </button>
