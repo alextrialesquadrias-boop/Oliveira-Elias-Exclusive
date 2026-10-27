@@ -15,7 +15,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('admin@oliveiraeliasexclusive.com.br');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setEmail('');
+      setEmail('admin@oliveiraeliasexclusive.com.br');
       setPassword('');
       setError('');
     }
@@ -43,12 +43,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       }
       setIsLoading(false);
     }, 400);
-  };
-
-  const fillDemoCredentials = () => {
-    setEmail('admin@oliveiraeliasexclusive.com.br');
-    setPassword('15Trinta#');
-    setError('');
   };
 
   return (
@@ -154,17 +148,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                     <span>Entrar no Painel</span>
                   </>
                 )}
-              </button>
-            </div>
-
-            {/* Quick Fill Helper */}
-            <div className="pt-3 border-t border-slate-800 text-center">
-              <button
-                type="button"
-                onClick={fillDemoCredentials}
-                className="text-[11px] text-amber-400/80 hover:text-amber-300 underline underline-offset-4 cursor-pointer"
-              >
-                Preencher credenciais padrão (admin@oliveiraeliasexclusive.com.br / 15Trinta#)
               </button>
             </div>
           </form>

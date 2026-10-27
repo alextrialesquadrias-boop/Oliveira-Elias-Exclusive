@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
               <img
                 src="/assets/aistudio/Logotipo_Oliveira_Elias_em_fundo_transparente_2eedaba8.png"
                 alt="Oliveira Elias Exclusive - Consultoria e Negócios Imobiliários"
-                className="h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
+                className="logo-3d-entrance h-12 sm:h-[58px] md:h-[66px] w-auto object-contain max-w-[280px] sm:max-w-[360px] md:max-w-[420px]"
               />
             </div>
           </button>
