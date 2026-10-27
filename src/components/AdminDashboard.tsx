@@ -33,7 +33,8 @@ import {
   Square,
   FileText,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Settings
 } from 'lucide-react';
 import { HeroData, Property, SiteData, AboutData } from '../types';
 import { COMPANY_DATA, DEFAULT_ABOUT_DATA, FOTO_HEADER_STORAGE_KEY } from '../data/properties';
@@ -109,7 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     properties.map((p) => ({ ...p, images: p.images.map((img) => ({ ...img })) }))
   );
 
-  const [activeMainTab, setActiveMainTab] = useState<'manageProperties' | 'hero' | 'about'>('manageProperties');
+  const [activeMainTab, setActiveMainTab] = useState<'manageProperties' | 'hero' | 'about' | 'settings'>('manageProperties');
   const [adminCategory, setAdminCategory] = useState<AdminCategoryFilter>('Todos os Imóveis');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -580,6 +581,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setDraftAbout((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSaveHeaderSettings = () => {
+    try {
+      localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
+      window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+      window.dispatchEvent(new Event('storage'));
+      setToastMessage('Foto do cabeçalho atualizada com sucesso no localStorage!');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 4000);
+    } catch (e) {
+      console.warn('Erro ao salvar foto do cabeçalho:', e);
+    }
+  };
+
   const handleSaveAbout = () => {
     // If broker photo was on Vercel Blob and was replaced via manual URL input
     if (isVercelBlobUrl(aboutData.brokerImageUrl) && draftAbout.brokerImageUrl !== aboutData.brokerImageUrl) {
@@ -811,6 +825,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <ShieldCheck className="w-4 h-4" />
             <span>Seção A Imobiliária (Sobre)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMainTab('settings')}
+            className={`px-5 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer ${
+              activeMainTab === 'settings'
+                ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 scale-102 border border-amber-400'
+                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>Configurações do Site</span>
           </button>
         </div>
 
@@ -1306,15 +1333,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   {/* Manual URL Input */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                      Ou digite / cole a URL da Foto do Cabeçalho
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                      URL da Foto do Cabeçalho (Corretora)
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={draftFotoHeader}
                       onChange={(e) => setDraftFotoHeader(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 text-white text-xs font-mono rounded-xl py-2.5 px-3 outline-none"
+                      placeholder="Cole aqui a URL da imagem (https://...)"
+                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 text-white text-xs sm:text-sm font-mono rounded-xl py-2.5 px-3 outline-none"
                     />
                     <div className="flex flex-wrap gap-2 mt-2">
                       <button
@@ -1516,6 +1543,229 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <Save className="w-4 h-4" />
                   <span>Salvar Alterações (Cabeçalho & Sobre)</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* ABA: CONFIGURAÇÕES DO SITE (CABEÇALHO & IDENTIDADE)             */}
+        {/* ============================================================== */}
+        {activeMainTab === 'settings' && (
+          <div className="bg-slate-900 border border-amber-500/25 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+            
+            <div className="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  <Settings className="w-4 h-4 text-amber-400" />
+                  <span>Configurações Globais</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">
+                  Configurações do Site
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  Gerencie elementos visuais do site, incluindo a foto da corretora que acompanha a logo no cabeçalho fixo.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveHeaderSettings}
+                  className="bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-extrabold text-xs sm:text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Alterações</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column: Form Controls */}
+              <div className="lg:col-span-7 space-y-6">
+                
+                {/* Form Card for Header Broker Photo */}
+                <div className="p-6 rounded-2xl bg-slate-950 border-2 border-amber-500/40 shadow-xl space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <label className="text-sm font-bold text-white flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-amber-400" />
+                      <span>URL da Foto do Cabeçalho (Corretora)</span>
+                    </label>
+
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-bold text-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Chave: fotoCorretoraHeader</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Esta foto é exibida no cabeçalho fixo no topo de todas as páginas, posicionada diretamente ao lado da logo oficial da imobiliária. O valor é salvo no <strong>localStorage</strong> sob a chave <code className="text-amber-400 font-mono text-xs font-bold">fotoCorretoraHeader</code>.
+                  </p>
+
+                  {/* Input field strictly formatted as requested: label + <input type="text"> */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                      URL da Foto do Cabeçalho (Corretora)
+                    </label>
+                    <input
+                      type="text"
+                      value={draftFotoHeader}
+                      onChange={(e) => setDraftFotoHeader(e.target.value)}
+                      placeholder="Cole aqui a URL da imagem (https://...)"
+                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 text-white text-xs sm:text-sm font-mono rounded-xl py-3 px-3.5 outline-none transition-colors"
+                    />
+                    <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setDraftFotoHeader(draftAbout.brokerImageUrl)}
+                        className="text-xs text-amber-400 hover:text-amber-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Usar mesma foto da seção Sobre
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDraftFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl)}
+                        className="text-xs text-slate-400 hover:text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Restaurar foto padrão
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Upload via Vercel Blob option */}
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                      Ou faça o upload de uma nova foto (Vercel Blob):
+                    </span>
+
+                    <label className={`w-full flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all ${
+                      isUploadingHeaderImg
+                        ? 'border-emerald-500 bg-emerald-950/20'
+                        : 'border-slate-700 hover:border-amber-400 bg-slate-900/50 hover:bg-slate-900'
+                    }`}>
+                      {isUploadingHeaderImg ? (
+                        <div className="flex flex-col items-center gap-2 text-center py-2">
+                          <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+                          <span className="text-xs font-bold text-white">
+                            Enviando foto para Vercel Blob... {headerImgProgress}%
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            A foto antiga será excluída do storage para preservar a cota.
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                            <UploadCloud className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-amber-400 hover:underline">
+                              Clique para selecionar foto do seu dispositivo
+                            </span>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Upload automático para Vercel Blob (JPG, PNG ou WebP)
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingHeaderImg}
+                        onChange={handleHeaderFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {headerImgError && (
+                      <div className="mt-3 p-3 bg-red-950/50 border border-red-500/40 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>{headerImgError}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save Button inside card */}
+                  <div className="pt-3 border-t border-slate-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveHeaderSettings}
+                      className="w-full sm:w-auto bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-extrabold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Salvar Alterações</span>
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Right Column: Live Interactive Preview */}
+              <div className="lg:col-span-5 bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4 sticky top-24">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-amber-400" />
+                    <span>Pré-visualização do Cabeçalho</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Ao Vivo
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Veja exatamente como a foto da corretora e a logo da Oliveira Elias Exclusive são exibidas no topo do site:
+                </p>
+
+                {/* Simulated Header Bar */}
+                <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+                  <div className="text-[10px] font-bold uppercase text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Simulação do Header Fixo</span>
+                    <span className="text-amber-400">Escala Real</span>
+                  </div>
+
+                  <div className="flex items-center justify-center py-4 bg-gradient-to-b from-slate-900 to-slate-950 rounded-xl border border-slate-800">
+                    {/* White Brand Box identical to the actual site */}
+                    <div className="bg-white/95 rounded-2xl px-3 py-2 shadow-md border border-amber-400/50 flex items-center gap-3">
+                      <img
+                        src={draftFotoHeader}
+                        alt="Foto da Corretora"
+                        className="h-12 w-12 rounded-lg object-cover object-top border border-amber-400/40 shadow-sm shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = DEFAULT_ABOUT_DATA.brokerImageUrl;
+                        }}
+                      />
+                      <img
+                        src="/logo-oliveira-elias.png"
+                        alt="Logo Oliveira Elias"
+                        className="logo-animada inline-block h-10 w-auto object-contain max-w-[200px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                    <p className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Sincronização imediata no site</span>
+                    </p>
+                    <p className="text-slate-400">
+                      Chave no Local Storage: <code className="text-amber-300 font-mono">fotoCorretoraHeader</code>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveHeaderSettings}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Alterações</span>
                 </button>
               </div>
 
