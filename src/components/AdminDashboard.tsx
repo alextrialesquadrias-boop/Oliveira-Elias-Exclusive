@@ -36,7 +36,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { HeroData, Property, SiteData, AboutData } from '../types';
-import { COMPANY_DATA } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA, FOTO_HEADER_STORAGE_KEY } from '../data/properties';
 import { formatCurrency } from '../utils/formatters';
 import {
   uploadImageToVercelBlob,
@@ -141,6 +141,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isUploadingFormImg, setIsUploadingFormImg] = useState(false);
   const [formImgProgress, setFormImgProgress] = useState(0);
   const [formImgError, setFormImgError] = useState<string | null>(null);
+
+  // Foto da Corretora no Cabeçalho (Header) state
+  const [draftFotoHeader, setDraftFotoHeader] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
+      if (saved) return saved;
+    } catch (e) {
+      console.warn('Erro ao carregar foto do cabeçalho do localStorage:', e);
+    }
+    return aboutData.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl;
+  });
+  const [isUploadingHeaderImg, setIsUploadingHeaderImg] = useState(false);
+  const [headerImgProgress, setHeaderImgProgress] = useState(0);
+  const [headerImgError, setHeaderImgError] = useState<string | null>(null);
 
   // Vercel Blob token status check from server
   const [isBlobConfigured, setIsBlobConfigured] = useState<boolean | null>(null);
@@ -516,6 +530,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Upload Foto do Cabeçalho (Header) para Vercel Blob com exclusão da foto anterior
+  const handleHeaderFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const previousHeaderImg = draftFotoHeader;
+
+    setIsUploadingHeaderImg(true);
+    setHeaderImgProgress(0);
+    setHeaderImgError(null);
+
+    try {
+      // 1. Se a foto anterior estava no Vercel Blob, exclui para preservar a cota Hobby
+      if (isVercelBlobUrl(previousHeaderImg)) {
+        deleteImageFromVercelBlob(previousHeaderImg).catch((delErr) => {
+          console.warn('[Vercel Blob] Erro ao excluir foto anterior do cabeçalho:', delErr);
+        });
+      }
+
+      // 2. Faz o upload da nova foto para a pasta 'cabecalho'
+      const publicUrl = await uploadImageToVercelBlob(file, 'cabecalho', (percent) => {
+        setHeaderImgProgress(percent);
+      });
+
+      setDraftFotoHeader(publicUrl);
+      localStorage.setItem(FOTO_HEADER_STORAGE_KEY, publicUrl);
+      window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: publicUrl }));
+      window.dispatchEvent(new Event('storage'));
+
+      const isCloud = isVercelBlobUrl(publicUrl);
+      setToastMessage(
+        isCloud
+          ? 'Foto do cabeçalho salva com sucesso no Vercel Blob e atualizada no site!'
+          : 'Foto do cabeçalho atualizada com sucesso!'
+      );
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 4000);
+    } catch (err: any) {
+      console.error('Erro no upload da foto do cabeçalho para Vercel Blob:', err);
+      setHeaderImgError(err?.message || 'Falha no upload da foto do cabeçalho.');
+    } finally {
+      setIsUploadingHeaderImg(false);
+      e.target.value = '';
+    }
+  };
+
   const handleAboutChange = (field: keyof AboutData, value: string) => {
     setDraftAbout((prev) => ({ ...prev, [field]: value }));
   };
@@ -528,8 +588,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
+    // Salva a foto do cabeçalho no localStorage e dispara evento de sincronização em tempo real
+    if (draftFotoHeader) {
+      try {
+        localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
+        window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.warn('Erro ao salvar fotoCorretoraHeader:', e);
+      }
+    }
+
     onSave(draftHero, draftProperties, draftAbout);
-    setToastMessage('Seção A Imobiliária (Sobre) salva com sucesso no site e no localStorage!');
+    setToastMessage('Seção A Imobiliária e Foto do Cabeçalho salvas com sucesso no site e no localStorage!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
@@ -549,6 +620,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
+    // Salva a foto do cabeçalho no localStorage e dispara evento de sincronização em tempo real
+    if (draftFotoHeader) {
+      try {
+        localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
+        window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.warn('Erro ao salvar fotoCorretoraHeader:', e);
+      }
+    }
+
     onSave(draftHero, draftProperties, draftAbout);
     setToastMessage('Todas as alterações foram salvas com sucesso no site e no localStorage!');
     setShowSavedToast(true);
@@ -557,6 +639,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleConfirmReset = () => {
     onResetDefaults();
+    try {
+      localStorage.removeItem(FOTO_HEADER_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.warn(e);
+    }
+    setDraftFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl);
     setConfirmResetModal(false);
     onClose();
   };
@@ -1124,12 +1214,133 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* Form Fields: Photo Upload and Paragraphs */}
               <div className="lg:col-span-7 space-y-6">
                 
-                {/* 1. Foto da Corretora (Upload / URL) */}
+                {/* 1. Foto da Corretora no Cabeçalho (Header) */}
+                <div className="p-5 rounded-2xl bg-slate-950 border-2 border-amber-500/40 shadow-xl space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-amber-400" />
+                      <span>Foto da Corretora no Cabeçalho (Header)</span>
+                    </label>
+
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-bold text-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Chave: fotoCorretoraHeader</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Esta foto aparece no cabeçalho fixo no topo de todas as páginas, posicionada ao lado esquerdo da logo oficial da imobiliária. As alterações são salvas no Local Storage sob a chave <code className="text-amber-400 font-mono text-[11px]">fotoCorretoraHeader</code>.
+                  </p>
+
+                  {/* Prévia ao vivo do Cabeçalho */}
+                  <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+                    <span className="text-[10px] font-bold uppercase text-amber-400/90 tracking-wider block mb-2">
+                      Prévia do Cabeçalho (Ao Vivo):
+                    </span>
+                    <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 flex items-center justify-center">
+                      <div className="bg-white/95 rounded-2xl px-3 py-2 shadow-md border border-amber-400/50 flex items-center gap-3">
+                        <img
+                          src={draftFotoHeader}
+                          alt="Prévia Foto Corretora no Cabeçalho"
+                          className="h-11 w-11 sm:h-12 sm:w-12 rounded-lg object-cover object-top border border-amber-400/40 shadow-sm shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = DEFAULT_ABOUT_DATA.brokerImageUrl;
+                          }}
+                        />
+                        <img
+                          src="/logo-oliveira-elias.png"
+                          alt="Logo Oficial"
+                          className="logo-animada inline-block h-9 sm:h-10 w-auto object-contain max-w-[180px] sm:max-w-[240px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Vercel Blob Upload Zone para Cabeçalho */}
+                  <label className={`w-full flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all ${
+                    isUploadingHeaderImg
+                      ? 'border-emerald-500 bg-emerald-950/20'
+                      : 'border-slate-700 hover:border-amber-400 bg-slate-900/50 hover:bg-slate-900'
+                  }`}>
+                    {isUploadingHeaderImg ? (
+                      <div className="flex flex-col items-center gap-2 text-center py-2">
+                        <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+                        <span className="text-xs font-bold text-white">
+                          Enviando foto para Vercel Blob... {headerImgProgress}%
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          A imagem anterior será excluída permanentemente para preservar a cota.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-center">
+                        <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                          <UploadCloud className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-amber-400 hover:underline">
+                            Clique para selecionar nova foto para o Cabeçalho
+                          </span>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Upload direto para o Vercel Blob (JPG, PNG ou WebP)
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingHeaderImg}
+                      onChange={handleHeaderFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {headerImgError && (
+                    <div className="p-3 bg-red-950/50 border border-red-500/40 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>{headerImgError}</span>
+                    </div>
+                  )}
+
+                  {/* Manual URL Input */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      Ou digite / cole a URL da Foto do Cabeçalho
+                    </label>
+                    <input
+                      type="url"
+                      value={draftFotoHeader}
+                      onChange={(e) => setDraftFotoHeader(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 text-white text-xs font-mono rounded-xl py-2.5 px-3 outline-none"
+                    />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraftFotoHeader(draftAbout.brokerImageUrl)}
+                        className="text-[11px] text-amber-400 hover:text-amber-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Usar mesma foto da seção Sobre
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDraftFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl)}
+                        className="text-[11px] text-slate-400 hover:text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Restaurar foto padrão
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Foto da Corretora (Seção Sobre / A Imobiliária) */}
                 <div className="p-5 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-amber-400" />
-                      <span>Foto da Corretora *</span>
+                      <span>Foto da Corretora (Seção Sobre / A Imobiliária) *</span>
                     </label>
 
                     {/* Aviso de Tamanho Recomendado (visível no painel administrativo) */}
@@ -1304,7 +1515,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Salvar Seção A Imobiliária</span>
+                  <span>Salvar Alterações (Cabeçalho & Sobre)</span>
                 </button>
               </div>
 

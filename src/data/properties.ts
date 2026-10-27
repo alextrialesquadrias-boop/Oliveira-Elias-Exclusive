@@ -2,6 +2,7 @@ import { Property, HeroData, AboutData } from '../types';
 
 export const STORAGE_KEY = 'oe_exclusive_site_data';
 export const AUTH_STORAGE_KEY = 'oe_exclusive_admin_auth';
+export const FOTO_HEADER_STORAGE_KEY = 'fotoCorretoraHeader';
 
 export const DEFAULT_HERO_DATA: HeroData = {
   title: "Encontre o Imóvel dos Seus Sonhos em Navegantes",

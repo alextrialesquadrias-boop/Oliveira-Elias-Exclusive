@@ -24,13 +24,13 @@ export async function checkBlobStorageStatus(): Promise<boolean> {
  * If BLOB_READ_WRITE_TOKEN is not configured on the server, falls back to local data URL preview.
  *
  * @param file The image File selected by the user.
- * @param folder Subfolder path ('hero' | 'imoveis' | 'sobre').
+ * @param folder Subfolder path ('hero' | 'imoveis' | 'sobre' | 'cabecalho').
  * @param onProgress Callback function reporting percentage (0-100).
  * @returns The public URL of the uploaded blob (or base64 preview if local).
  */
 export async function uploadImageToVercelBlob(
   file: File,
-  folder: 'hero' | 'imoveis' | 'sobre' = 'imoveis',
+  folder: 'hero' | 'imoveis' | 'sobre' | 'cabecalho' = 'imoveis',
   onProgress?: UploadProgressCallback
 ): Promise<string> {
   if (!file) {

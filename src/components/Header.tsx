@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Menu, X, Phone, Building2, ShieldCheck } from 'lucide-react';
-import { COMPANY_DATA, DEFAULT_ABOUT_DATA, STORAGE_KEY } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA, STORAGE_KEY, FOTO_HEADER_STORAGE_KEY } from '../data/properties';
 
 interface HeaderProps {
   onNavigate: (sectionId: string) => void;
@@ -11,30 +11,80 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, brokerImageUrl }) =>
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // FOTO DA CORRETORA: Carregada dinamicamente via prop (App.tsx -> siteData.about.brokerImageUrl)
-  // ou diretamente do localStorage ('oe_exclusive_site_data' configurado no Painel Administrativo).
-  // Caso deseje buscar de outra API/banco no futuro, substitua ou atualize esta variável de estado.
-  const [fotoCorretora, setFotoCorretora] = useState<string>(() => {
-    if (brokerImageUrl) return brokerImageUrl;
+  // FOTO DA CORRETORA NO CABEÇALHO:
+  // Estado 'fotoHeader' com busca inicial e persistência sob a chave 'fotoCorretoraHeader' no localStorage
+  const [fotoHeader, setFotoHeader] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
+      if (saved) return saved;
+
+      const siteData = localStorage.getItem(STORAGE_KEY);
+      if (siteData) {
+        const parsed = JSON.parse(siteData);
         if (parsed.about?.brokerImageUrl) {
           return parsed.about.brokerImageUrl;
         }
       }
     } catch (e) {
-      console.warn('Erro ao carregar foto da corretora do localStorage:', e);
+      console.warn('Erro ao carregar fotoHeader do localStorage:', e);
     }
-    return DEFAULT_ABOUT_DATA.brokerImageUrl;
+    return brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl;
   });
 
-  // Mantém a foto sincronizada em tempo real quando alterada no Painel Administrativo
+  // useEffect para carregar do localStorage na montagem e manter sincronizado em tempo real (storage + custom event)
   useEffect(() => {
-    if (brokerImageUrl) {
-      setFotoCorretora(brokerImageUrl);
-    }
+    const syncFotoHeader = () => {
+      try {
+        const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
+        if (saved) {
+          setFotoHeader(saved);
+          return;
+        }
+        const siteData = localStorage.getItem(STORAGE_KEY);
+        if (siteData) {
+          const parsed = JSON.parse(siteData);
+          if (parsed.about?.brokerImageUrl) {
+            setFotoHeader(parsed.about.brokerImageUrl);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Erro no sync de fotoCorretoraHeader:', e);
+      }
+      if (brokerImageUrl) {
+        setFotoHeader(brokerImageUrl);
+      } else {
+        setFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl);
+      }
+    };
+
+    // Sincronização inicial
+    syncFotoHeader();
+
+    // Listener para eventos de storage do navegador (ex: abas cruzadas)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === FOTO_HEADER_STORAGE_KEY || e.key === STORAGE_KEY || !e.key) {
+        syncFotoHeader();
+      }
+    };
+
+    // Listener para evento customizado de salvamento instantâneo no Painel Administrativo
+    const handleCustomEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setFotoHeader(customEvent.detail);
+      } else {
+        syncFotoHeader();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('fotoCorretoraHeaderUpdated', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('fotoCorretoraHeaderUpdated', handleCustomEvent);
+    };
   }, [brokerImageUrl]);
 
   useEffect(() => {
@@ -69,10 +119,10 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, brokerImageUrl }) =>
           >
             <div className="bg-white/95 hover:bg-white rounded-2xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 shadow-md shadow-black/20 border border-amber-400/50 hover:border-amber-400 transition-all flex items-center gap-2.5 sm:gap-3 overflow-visible">
               
-              {/* Foto da Corretora (lado esquerdo) - Dinâmica */}
+              {/* Foto da Corretora (lado esquerdo) - Dinâmica com fotoHeader */}
               <div className="relative flex-shrink-0">
                 <img
-                  src={fotoCorretora}
+                  src={fotoHeader}
                   alt={`Foto da Corretora ${COMPANY_DATA.broker} - Oliveira Elias Exclusive`}
                   loading="eager"
                   decoding="async"
