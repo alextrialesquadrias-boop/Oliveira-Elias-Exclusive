@@ -1,4 +1,4 @@
-import { Property, HeroData } from '../types';
+import { Property, HeroData, AboutData } from '../types';
 
 export const STORAGE_KEY = 'oe_exclusive_site_data';
 export const AUTH_STORAGE_KEY = 'oe_exclusive_admin_auth';
@@ -7,6 +7,12 @@ export const DEFAULT_HERO_DATA: HeroData = {
   title: "Encontre o Imóvel dos Seus Sonhos em Navegantes",
   subtitle: "Consultoria imobiliária personalizada com Daniela de Oliveira Elias (CRECI-SC 71040F). Casas, apartamentos, terrenos e oportunidades comerciais de alto padrão no litoral catarinense.",
   bgImageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=85"
+};
+
+export const DEFAULT_ABOUT_DATA: AboutData = {
+  brokerImageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=85",
+  paragraph1: "A Oliveira Elias Exclusive é uma empresa especializada em consultoria e negócios imobiliários sediada na cidade de Navegantes – SC. Sob a liderança e atendimento personalizado da corretora Daniela de Oliveira Elias (CRECI-SC 71040F), a imobiliária atua com foco irrestrito na excelência, transparência e segurança jurídica para cada cliente.",
+  paragraph2: "Com atuação exclusiva no segmento de VENDA de imóveis residenciais e comerciais, não trabalhamos com locação, garantindo atenção total e especializada às melhores oportunidades de investimento e moradia no litoral de Santa Catarina."
 };
 
 export const COMPANY_DATA = {
@@ -23,9 +29,9 @@ export const COMPANY_DATA = {
   phoneRaw: "5547992171530",
   email: "danielaoliveiraelias1986@gmail.com",
   instagram: "@daniela_oliveiraelias",
-  instagramUrl: "https://instagram.com/daniela_oliveiraelias",
+  instagramUrl: "https://www.instagram.com/daniela_oliveiraelias/",
   facebook: "Daniela Oliveira Corretora de Imóveis",
-  facebookUrl: "https://www.facebook.com/search/top?q=Daniela%20Oliveira%20Corretora%20de%20Im%C3%B3veis",
+  facebookUrl: "https://www.facebook.com/search/top?q=daniela%20oliveira%20corretora%20de%20im%C3%B3veis",
   hours: "24 horas, de segunda a segunda (todos os dias, inclusive fins de semana)",
   hoursShort: "24 horas, de segunda a segunda",
   websiteUrl: "www.oliveiraeliasexclusive.com.br",

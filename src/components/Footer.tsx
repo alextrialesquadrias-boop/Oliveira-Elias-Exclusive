@@ -54,7 +54,7 @@ export const Footer: React.FC<FooterProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram @daniela_oliveiraelias"
-                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-400 hover:bg-gradient-to-tr hover:from-amber-600 hover:to-pink-600 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm group"
+                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-400 hover:text-amber-400 hover:bg-amber-400/10 text-slate-300 flex items-center justify-center transition-all duration-300 shadow-sm group hover:scale-105 cursor-pointer"
                 title="Siga no Instagram: @daniela_oliveiraelias"
               >
                 <Instagram className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -65,15 +65,21 @@ export const Footer: React.FC<FooterProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook Daniela Oliveira Corretora de Imóveis"
-                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm group"
+                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-400 hover:text-amber-400 hover:bg-amber-400/10 text-slate-300 flex items-center justify-center transition-all duration-300 shadow-sm group hover:scale-105 cursor-pointer"
                 title="Página no Facebook: Daniela Oliveira Corretora de Imóveis"
               >
                 <Facebook className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </a>
 
-              <span className="text-xs text-slate-400 ml-1">
+              <a
+                href={COMPANY_DATA.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-slate-400 hover:text-amber-400 ml-1 transition-colors cursor-pointer"
+                title="Instagram @daniela_oliveiraelias"
+              >
                 {COMPANY_DATA.instagram}
-              </span>
+              </a>
             </div>
           </div>
 

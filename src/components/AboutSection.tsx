@@ -1,8 +1,15 @@
 import React from 'react';
 import { ShieldCheck, Award, CheckCircle2, UserCheck, Scale, Home, Clock, MapPin } from 'lucide-react';
-import { COMPANY_DATA } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA } from '../data/properties';
+import { AboutData } from '../types';
 
-export const AboutSection: React.FC = () => {
+interface AboutSectionProps {
+  aboutData?: AboutData;
+}
+
+export const AboutSection: React.FC<AboutSectionProps> = ({ aboutData }) => {
+  const data = aboutData || DEFAULT_ABOUT_DATA;
+
   return (
     <section id="a-imobiliaria" className="py-20 lg:py-28 bg-white relative overflow-hidden">
       {/* Subtle decorative background elements */}
@@ -26,21 +33,15 @@ export const AboutSection: React.FC = () => {
         {/* Two Columns Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
-          {/* Column 1: Image Placeholder with recommended dimensions */}
+          {/* Column 1: Corretora Daniela de Oliveira Elias */}
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-100 group">
               <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=85"
+                src={data.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl}
                 alt="Daniela de Oliveira Elias - Corretora de Imóveis CRECI-SC 71040F"
                 className="w-full h-[450px] sm:h-[520px] object-cover object-top group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-
-              {/* Recommended Image Size Badge */}
-              <div className="absolute top-4 left-4 bg-slate-950/80 backdrop-blur-md text-[11px] text-amber-300 font-medium px-3 py-1.5 rounded-lg border border-amber-500/30 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                <span>Tamanho Recomendado: 800 × 1000 px</span>
-              </div>
 
               {/* Bottom Credential Card */}
               <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-amber-500/30 text-white shadow-xl">
@@ -83,12 +84,12 @@ export const AboutSection: React.FC = () => {
               </p>
             </div>
 
-            <p className="text-base sm:text-lg leading-relaxed text-slate-600">
-              A <strong>Oliveira Elias Exclusive</strong> é uma empresa especializada em consultoria e negócios imobiliários sediada na cidade de <strong>Navegantes – SC</strong>. Sob a liderança e atendimento personalizado da corretora <strong>Daniela de Oliveira Elias (CRECI-SC 71040F)</strong>, a imobiliária atua com foco irrestrito na excelência, transparência e segurança jurídica para cada cliente.
+            <p className="text-base sm:text-lg leading-relaxed text-slate-600 whitespace-pre-line">
+              {data.paragraph1 || DEFAULT_ABOUT_DATA.paragraph1}
             </p>
 
-            <p className="text-base leading-relaxed text-slate-600">
-              Com atuação <strong>exclusiva no segmento de VENDA</strong> de imóveis residenciais e comerciais, não trabalhamos com locação, garantindo atenção total e especializada às melhores oportunidades de investimento e moradia no litoral de Santa Catarina.
+            <p className="text-base leading-relaxed text-slate-600 whitespace-pre-line">
+              {data.paragraph2 || DEFAULT_ABOUT_DATA.paragraph2}
             </p>
 
             {/* Core Pillars (Focused in compra, venda e avaliação de imóveis) */}

@@ -15,7 +15,7 @@ export interface UploadProgressCallback {
  */
 export async function uploadImageToVercelBlob(
   file: File,
-  folder: 'hero' | 'imoveis' = 'imoveis',
+  folder: 'hero' | 'imoveis' | 'sobre' = 'imoveis',
   onProgress?: UploadProgressCallback
 ): Promise<string> {
   if (!file) {

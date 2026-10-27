@@ -22,10 +22,11 @@ import { AdminDashboard } from './components/AdminDashboard';
 import {
   PROPERTIES_DATA,
   DEFAULT_HERO_DATA,
+  DEFAULT_ABOUT_DATA,
   STORAGE_KEY,
   AUTH_STORAGE_KEY
 } from './data/properties';
-import { Property, SearchFilter, HeroData, SiteData } from './types';
+import { Property, SearchFilter, HeroData, AboutData, SiteData } from './types';
 
 export default function App() {
   // Load initial customized site data from localStorage (or fallback to defaults)
@@ -35,7 +36,11 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.hero && Array.isArray(parsed.properties) && parsed.properties.length > 0) {
-          return parsed;
+          return {
+            hero: parsed.hero,
+            about: parsed.about || DEFAULT_ABOUT_DATA,
+            properties: parsed.properties
+          };
         }
       }
     } catch (e) {
@@ -43,6 +48,7 @@ export default function App() {
     }
     return {
       hero: DEFAULT_HERO_DATA,
+      about: DEFAULT_ABOUT_DATA,
       properties: PROPERTIES_DATA
     };
   });
@@ -120,9 +126,10 @@ export default function App() {
     setIsAdminDashboardOpen(true);
   };
 
-  const handleSaveSiteData = (newHero: HeroData, newProperties: Property[]) => {
+  const handleSaveSiteData = (newHero: HeroData, newProperties: Property[], newAbout: AboutData) => {
     const newData: SiteData = {
       hero: newHero,
+      about: newAbout,
       properties: newProperties
     };
     setSiteData(newData);
@@ -141,6 +148,7 @@ export default function App() {
     }
     const defaultData: SiteData = {
       hero: DEFAULT_HERO_DATA,
+      about: DEFAULT_ABOUT_DATA,
       properties: PROPERTIES_DATA
     };
     setSiteData(defaultData);
@@ -198,7 +206,7 @@ export default function App() {
         />
 
         {/* 3. Seção "A Imobiliária" */}
-        <AboutSection />
+        <AboutSection aboutData={siteData.about} />
 
         {/* 4. Grade de Imóveis em Destaque (Cards Dinâmicos Editáveis) */}
         <FeaturedProperties
@@ -261,6 +269,7 @@ export default function App() {
       <AdminDashboard
         isOpen={isAdminDashboardOpen}
         heroData={siteData.hero}
+        aboutData={siteData.about}
         properties={siteData.properties}
         onSave={handleSaveSiteData}
         onResetDefaults={handleResetDefaults}

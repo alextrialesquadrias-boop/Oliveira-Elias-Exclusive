@@ -30,9 +30,13 @@ import {
   Search,
   Filter,
   CheckSquare,
-  Square
+  Square,
+  FileText,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
-import { HeroData, Property, SiteData } from '../types';
+import { HeroData, Property, SiteData, AboutData } from '../types';
+import { COMPANY_DATA } from '../data/properties';
 import { formatCurrency } from '../utils/formatters';
 import {
   uploadImageToVercelBlob,
@@ -43,8 +47,9 @@ import {
 interface AdminDashboardProps {
   isOpen: boolean;
   heroData: HeroData;
+  aboutData: AboutData;
   properties: Property[];
-  onSave: (newHero: HeroData, newProperties: Property[]) => void;
+  onSave: (newHero: HeroData, newProperties: Property[], newAbout: AboutData) => void;
   onResetDefaults: () => void;
   onClose: () => void;
   onLogout: () => void;
@@ -88,6 +93,7 @@ const emptyFormState: PropertyFormState = {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isOpen,
   heroData,
+  aboutData,
   properties,
   onSave,
   onResetDefaults,
@@ -98,11 +104,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Local draft state for edits
   const [draftHero, setDraftHero] = useState<HeroData>({ ...heroData });
+  const [draftAbout, setDraftAbout] = useState<AboutData>({ ...aboutData });
   const [draftProperties, setDraftProperties] = useState<Property[]>(
     properties.map((p) => ({ ...p, images: p.images.map((img) => ({ ...img })) }))
   );
 
-  const [activeMainTab, setActiveMainTab] = useState<'hero' | 'manageProperties'>('manageProperties');
+  const [activeMainTab, setActiveMainTab] = useState<'manageProperties' | 'hero' | 'about'>('manageProperties');
   const [adminCategory, setAdminCategory] = useState<AdminCategoryFilter>('Todos os Imóveis');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -126,6 +133,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [heroProgress, setHeroProgress] = useState(0);
   const [heroUploadError, setHeroUploadError] = useState<string | null>(null);
+
+  const [isUploadingAboutImg, setIsUploadingAboutImg] = useState(false);
+  const [aboutImgProgress, setAboutImgProgress] = useState(0);
+  const [aboutImgError, setAboutImgError] = useState<string | null>(null);
 
   const [isUploadingFormImg, setIsUploadingFormImg] = useState(false);
   const [formImgProgress, setFormImgProgress] = useState(0);
@@ -259,7 +270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const updated = [newProp, ...draftProperties];
       setDraftProperties(updated);
-      onSave(draftHero, updated);
+      onSave(draftHero, updated, draftAbout);
       setToastMessage(`Imóvel ${newProp.code} cadastrado com sucesso!`);
     } else {
       // Edit existing property: if image changed and previous was on Vercel Blob, delete the old one
@@ -302,7 +313,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       setDraftProperties(updated);
-      onSave(draftHero, updated);
+      onSave(draftHero, updated, draftAbout);
       setToastMessage(`Imóvel atualizado com sucesso!`);
     }
 
@@ -335,7 +346,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // 3. Remove property from state and sync to localStorage
     const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
-    onSave(draftHero, updated);
+    onSave(draftHero, updated, draftAbout);
 
     setToastMessage(
       blobImagesToDelete.length > 0
@@ -426,7 +437,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const updatedHero = { ...draftHero, bgImageUrl: publicUrl };
       setDraftHero(updatedHero);
-      onSave(updatedHero, draftProperties);
+      onSave(updatedHero, draftProperties, draftAbout);
 
       setToastMessage('Upload do Banner concluído e imagem anterior removida do Vercel Blob!');
       setShowSavedToast(true);
@@ -444,6 +455,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setDraftHero((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Upload Broker Photo to Vercel Blob with permanent deletion of previous image
+  const handleAboutFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const previousBrokerImg = draftAbout.brokerImageUrl;
+
+    setIsUploadingAboutImg(true);
+    setAboutImgProgress(0);
+    setAboutImgError(null);
+
+    try {
+      // 1. If previous photo was on Vercel Blob, permanently delete it from storage
+      if (isVercelBlobUrl(previousBrokerImg)) {
+        deleteImageFromVercelBlob(previousBrokerImg).catch((delErr) => {
+          console.warn('[Vercel Blob] Erro ao excluir foto anterior da corretora:', delErr);
+        });
+      }
+
+      // 2. Upload new photo directly to Vercel Blob
+      const publicUrl = await uploadImageToVercelBlob(file, 'sobre', (percent) => {
+        setAboutImgProgress(percent);
+      });
+
+      const updatedAbout = { ...draftAbout, brokerImageUrl: publicUrl };
+      setDraftAbout(updatedAbout);
+      onSave(draftHero, draftProperties, updatedAbout);
+
+      setToastMessage('Foto da corretora enviada para o Vercel Blob e imagem antiga removida!');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 4000);
+    } catch (err: any) {
+      console.error('Erro no upload da foto da corretora para Vercel Blob:', err);
+      setAboutImgError(err?.message || 'Falha no upload para o Vercel Blob.');
+    } finally {
+      setIsUploadingAboutImg(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleAboutChange = (field: keyof AboutData, value: string) => {
+    setDraftAbout((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveAbout = () => {
+    // If broker photo was on Vercel Blob and was replaced via manual URL input
+    if (isVercelBlobUrl(aboutData.brokerImageUrl) && draftAbout.brokerImageUrl !== aboutData.brokerImageUrl) {
+      deleteImageFromVercelBlob(aboutData.brokerImageUrl).catch((delErr) => {
+        console.warn('[Vercel Blob] Erro ao excluir foto anterior da corretora após salvar:', delErr);
+      });
+    }
+
+    onSave(draftHero, draftProperties, draftAbout);
+    setToastMessage('Seção A Imobiliária (Sobre) salva com sucesso no site e no localStorage!');
+    setShowSavedToast(true);
+    setTimeout(() => setShowSavedToast(false), 3500);
+  };
+
   const handleSaveAll = () => {
     // If the banner was replaced with another URL and the original was on Vercel Blob, delete the old one
     if (isVercelBlobUrl(heroData.bgImageUrl) && draftHero.bgImageUrl !== heroData.bgImageUrl) {
@@ -452,7 +521,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    onSave(draftHero, draftProperties);
+    // If broker photo was replaced with another URL and the original was on Vercel Blob, delete the old one
+    if (isVercelBlobUrl(aboutData.brokerImageUrl) && draftAbout.brokerImageUrl !== aboutData.brokerImageUrl) {
+      deleteImageFromVercelBlob(aboutData.brokerImageUrl).catch((delErr) => {
+        console.warn('[Vercel Blob] Erro ao excluir foto anterior da corretora após salvar:', delErr);
+      });
+    }
+
+    onSave(draftHero, draftProperties, draftAbout);
     setToastMessage('Todas as alterações foram salvas com sucesso no site e no localStorage!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
@@ -597,6 +673,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Sparkles className="w-4 h-4" />
             <span>Banner Principal (Hero)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMainTab('about')}
+            className={`px-5 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer ${
+              activeMainTab === 'about'
+                ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 scale-102 border border-amber-400'
+                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Seção A Imobiliária (Sobre)</span>
           </button>
         </div>
 
@@ -956,6 +1045,231 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Salvar Banner</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* ABA: SEÇÃO A IMOBILIÁRIA (SOBRE)                               */}
+        {/* ============================================================== */}
+        {activeMainTab === 'about' && (
+          <div className="bg-slate-900 border border-amber-500/25 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+            
+            <div className="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>Conteúdo Institucional</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">
+                  Seção A Imobiliária (Sobre)
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  Altere a foto oficial da corretora e personalize os textos descritivos institucionais que aparecem na página inicial.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveAbout}
+                  className="bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Seção A Imobiliária</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Form Fields: Photo Upload and Paragraphs */}
+              <div className="lg:col-span-7 space-y-6">
+                
+                {/* 1. Foto da Corretora (Upload / URL) */}
+                <div className="p-5 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-amber-400" />
+                      <span>Foto da Corretora *</span>
+                    </label>
+
+                    {/* Aviso de Tamanho Recomendado (visível no painel administrativo) */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-[11px] font-bold text-amber-300">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                      <span>Tamanho Recomendado: 800 × 1000 px</span>
+                    </div>
+                  </div>
+
+                  {/* Vercel Blob Upload Zone */}
+                  <label className={`w-full flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 cursor-pointer transition-all ${
+                    isUploadingAboutImg
+                      ? 'border-emerald-500 bg-emerald-950/20'
+                      : 'border-slate-700 hover:border-amber-400 bg-slate-900/50 hover:bg-slate-900'
+                  }`}>
+                    {isUploadingAboutImg ? (
+                      <div className="flex flex-col items-center gap-2 text-center py-2">
+                        <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+                        <span className="text-xs font-bold text-white">
+                          Enviando foto para Vercel Blob... {aboutImgProgress}%
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          A imagem anterior será excluída permanentemente para preservar a cota.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-center">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-amber-400 hover:underline">
+                            Clique para selecionar a foto da corretora
+                          </span>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Upload direto para o Vercel Blob (JPG, PNG ou WebP até 50MB)
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingAboutImg}
+                      onChange={handleAboutFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {aboutImgError && (
+                    <div className="p-3 bg-red-950/50 border border-red-500/40 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>{aboutImgError}</span>
+                    </div>
+                  )}
+
+                  {/* Manual URL input */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      Ou digite / cole a URL da Imagem
+                    </label>
+                    <input
+                      type="url"
+                      value={draftAbout.brokerImageUrl}
+                      onChange={(e) => handleAboutChange('brokerImageUrl', e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 text-white text-xs font-mono rounded-xl py-2.5 px-3 outline-none"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Ao trocar a foto, fotos antigas hospedadas no Vercel Blob são excluídas automaticamente para manter o plano gratuito.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. Primeiro Parágrafo */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Primeiro Parágrafo (Apresentação e Liderança) *</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">Texto inicial</span>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={draftAbout.paragraph1}
+                    onChange={(e) => handleAboutChange('paragraph1', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-white text-sm rounded-xl py-3 px-4 outline-none leading-relaxed"
+                    placeholder="A Oliveira Elias Exclusive é uma empresa especializada em consultoria e negócios imobiliários sediada na cidade de Navegantes – SC..."
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Começa com a apresentação da empresa: &quot;A Oliveira Elias Exclusive é uma empresa especializada em consultoria...&quot;
+                  </p>
+                </div>
+
+                {/* 3. Segundo Parágrafo */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Segundo Parágrafo (Foco Exclusivo em Venda) *</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">Diferencial</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={draftAbout.paragraph2}
+                    onChange={(e) => handleAboutChange('paragraph2', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-white text-sm rounded-xl py-3 px-4 outline-none leading-relaxed"
+                    placeholder="Com atuação exclusiva no segmento de VENDA de imóveis residenciais e comerciais, não trabalhamos com locação..."
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Começa com o posicionamento exclusivo de vendas: &quot;Com atuação exclusiva no segmento de VENDA...&quot;
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Preview Column */}
+              <div className="lg:col-span-5 bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 sticky top-24">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Pré-visualização da Seção</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">Como aparece no site</span>
+                </div>
+
+                {/* Card preview with broker image and credential badge */}
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-800 bg-slate-900">
+                  <div className="aspect-[4/5] w-full overflow-hidden">
+                    <img
+                      src={draftAbout.brokerImageUrl}
+                      alt="Pré-visualização da Corretora"
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent pointer-events-none"></div>
+
+                  {/* Dark Credential Badge (exactly like the site) */}
+                  <div className="absolute bottom-3 left-3 right-3 bg-slate-900/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/30 text-white shadow-xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-white">{COMPANY_DATA.broker}</h4>
+                        <p className="text-[11px] text-amber-400 font-semibold">{COMPANY_DATA.creci}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{COMPANY_DATA.tradeName}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Text Preview */}
+                <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-800 space-y-2 text-xs text-slate-300">
+                  <span className="text-[10px] font-bold uppercase text-amber-400/80 tracking-wider block">
+                    Prévia dos Textos
+                  </span>
+                  <p className="line-clamp-3 leading-relaxed text-slate-300">
+                    {draftAbout.paragraph1 || 'Sem primeiro parágrafo preenchido.'}
+                  </p>
+                  <p className="line-clamp-2 leading-relaxed text-slate-400">
+                    {draftAbout.paragraph2 || 'Sem segundo parágrafo preenchido.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveAbout}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Seção A Imobiliária</span>
                 </button>
               </div>
 

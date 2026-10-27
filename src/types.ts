@@ -28,8 +28,15 @@ export interface HeroData {
   bgImageUrl: string;
 }
 
+export interface AboutData {
+  brokerImageUrl: string;
+  paragraph1: string;
+  paragraph2: string;
+}
+
 export interface SiteData {
   hero: HeroData;
+  about: AboutData;
   properties: Property[];
 }
 
