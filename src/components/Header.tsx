@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Menu, X, Phone, Building2, ShieldCheck } from 'lucide-react';
-import { COMPANY_DATA, DEFAULT_ABOUT_DATA, STORAGE_KEY, FOTO_HEADER_STORAGE_KEY } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA } from '../data/properties';
 
 interface HeaderProps {
   onNavigate: (sectionId: string) => void;

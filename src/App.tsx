@@ -24,8 +24,7 @@ import {
   DEFAULT_HERO_DATA,
   DEFAULT_ABOUT_DATA,
   STORAGE_KEY,
-  AUTH_STORAGE_KEY,
-  FOTO_HEADER_STORAGE_KEY
+  AUTH_STORAGE_KEY
 } from './data/properties';
 import { Property, SearchFilter, HeroData, AboutData, SiteData } from './types';
 
@@ -144,7 +143,6 @@ export default function App() {
   const handleResetDefaults = () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(FOTO_HEADER_STORAGE_KEY);
       fetch('/api/configuracoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -37,7 +37,7 @@ import {
   Settings
 } from 'lucide-react';
 import { HeroData, Property, SiteData, AboutData } from '../types';
-import { COMPANY_DATA, DEFAULT_ABOUT_DATA, FOTO_HEADER_STORAGE_KEY } from '../data/properties';
+import { COMPANY_DATA, DEFAULT_ABOUT_DATA } from '../data/properties';
 import { formatCurrency } from '../utils/formatters';
 import {
   uploadImageToVercelBlob,
@@ -143,16 +143,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formImgProgress, setFormImgProgress] = useState(0);
   const [formImgError, setFormImgError] = useState<string | null>(null);
 
-  // Foto da Corretora no Cabeçalho (Header) state
-  const [draftFotoHeader, setDraftFotoHeader] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
-      if (saved) return saved;
-    } catch (e) {
-      console.warn('Erro ao carregar foto do cabeçalho do localStorage:', e);
-    }
-    return aboutData.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl;
-  });
+  // Foto da Corretora no Cabeçalho (Header) state (carregada do Vercel KV via GET /api/configuracoes)
+  const [draftFotoHeader, setDraftFotoHeader] = useState<string>(
+    aboutData.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl
+  );
   const [isUploadingHeaderImg, setIsUploadingHeaderImg] = useState(false);
   const [headerImgProgress, setHeaderImgProgress] = useState(0);
   const [headerImgError, setHeaderImgError] = useState<string | null>(null);

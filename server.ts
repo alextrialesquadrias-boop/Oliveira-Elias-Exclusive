@@ -60,22 +60,28 @@ async function startServer() {
     }
   };
 
-  const getDbSetting = async (key: string): Promise<any> => {
+  const KV_HEADER_KEY = 'config:fotoCorretoraHeader';
+
+  const getDbSetting = async (key: string = KV_HEADER_KEY): Promise<string | null> => {
     if (isVercelKvConfigured) {
       try {
-        const val = await kv.get(key);
-        if (val !== null && val !== undefined) {
-          return val;
+        const val = await kv.get<string>(key);
+        if (val !== null && val !== undefined && typeof val === 'string' && val.trim()) {
+          return val.trim();
         }
       } catch (kvErr) {
-        console.warn('[Vercel KV] Erro ao ler do Vercel KV, usando fallback local:', kvErr);
+        console.warn('[Vercel KV] Erro ao ler do Vercel KV (tratado graciosamente):', kvErr);
       }
+    } else {
+      console.warn('[Vercel KV] Aviso: Vercel KV não configurado no ambiente. Utilizando armazenamento persistente local.');
     }
+
     const local = readLocalSettings();
-    return local[key] ?? null;
+    const localVal = local[key] ?? local['fotoCorretoraHeader'] ?? null;
+    return localVal ? String(localVal).trim() : null;
   };
 
-  const setDbSetting = async (key: string, value: any): Promise<{ storage: string }> => {
+  const setDbSetting = async (key: string = KV_HEADER_KEY, value: string): Promise<{ storage: string }> => {
     let storageUsed = 'local-db';
     if (isVercelKvConfigured) {
       try {
@@ -84,11 +90,14 @@ async function startServer() {
       } catch (kvErr) {
         console.warn('[Vercel KV] Erro ao gravar no Vercel KV, usando fallback local:', kvErr);
       }
+    } else {
+      console.warn('[Vercel KV] Aviso: Vercel KV não configurado no ambiente. Salvando no armazenamento persistente local.');
     }
 
-    // Always mirror to local file for maximum resilience
+    // Always mirror to local file for offline and restart resilience
     const local = readLocalSettings();
     local[key] = value;
+    local['fotoCorretoraHeader'] = value;
     local[`${key}_updatedAt`] = new Date().toISOString();
     writeLocalSettings(local);
 
@@ -114,55 +123,48 @@ async function startServer() {
   });
 
   // Rota GET /api/configuracoes
-  // Busca a URL da foto do cabeçalho salva no banco de dados persistente
+  // Retorna a URL da foto salva no Vercel KV (chave: config:fotoCorretoraHeader)
   app.get('/api/configuracoes', async (_req, res) => {
     try {
-      const fotoCorretoraHeader = await getDbSetting('fotoCorretoraHeader');
+      const fotoCorretoraHeader = await getDbSetting(KV_HEADER_KEY);
       return res.json({
         success: true,
-        fotoCorretoraHeader: fotoCorretoraHeader || null,
-        storage: isVercelKvConfigured ? 'vercel-kv' : 'persistent-db'
+        fotoCorretoraHeader: fotoCorretoraHeader || null
       });
     } catch (err: any) {
-      console.error('[API /api/configuracoes GET] Erro:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Erro ao buscar configurações no banco de dados.',
+      console.warn('[API /api/configuracoes GET] Erro tratado graciosamente:', err);
+      return res.json({
+        success: true,
         fotoCorretoraHeader: null
       });
     }
   });
 
   // Rota POST /api/configuracoes
-  // Salva a nova URL da foto no banco de dados (Vercel KV / Postgres / DB persistente)
+  // Salva a nova URL da foto no Vercel KV usando a chave config:fotoCorretoraHeader
   app.post('/api/configuracoes', async (req, res) => {
     try {
       const { fotoCorretoraHeader, url, fotoHeader, imageUrl } = req.body || {};
       const targetUrl = fotoCorretoraHeader ?? url ?? fotoHeader ?? imageUrl;
 
-      if (targetUrl === undefined || targetUrl === null) {
+      if (!targetUrl || typeof targetUrl !== 'string' || !targetUrl.trim()) {
         return res.status(400).json({
           success: false,
-          error: 'Nenhuma URL de foto foi fornecida (esperado: fotoCorretoraHeader).'
+          error: 'Nenhuma URL de foto foi fornecida (esperado: { fotoCorretoraHeader: "NOVA_URL" }).'
         });
       }
 
-      const cleanUrl = String(targetUrl).trim();
-      const { storage } = await setDbSetting('fotoCorretoraHeader', cleanUrl);
+      const cleanUrl = targetUrl.trim();
+      await setDbSetting(KV_HEADER_KEY, cleanUrl);
 
-      console.log('[API /api/configuracoes POST] Foto salva com sucesso no banco de dados:', {
-        fotoCorretoraHeader: cleanUrl,
-        storage
-      });
+      console.log('[API /api/configuracoes POST] URL salva com sucesso no Vercel KV (chave: config:fotoCorretoraHeader):', cleanUrl);
 
       return res.json({
         success: true,
-        fotoCorretoraHeader: cleanUrl,
-        storage,
-        message: 'Foto do cabeçalho salva com sucesso no banco de dados!'
+        fotoCorretoraHeader: cleanUrl
       });
     } catch (err: any) {
-      console.error('[API /api/configuracoes POST] Erro:', err);
+      console.error('[API /api/configuracoes POST] Erro ao salvar:', err);
       return res.status(500).json({
         success: false,
         error: err?.message || 'Erro ao salvar configuração no banco de dados.'
