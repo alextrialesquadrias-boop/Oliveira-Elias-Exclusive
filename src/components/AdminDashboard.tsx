@@ -143,7 +143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formImgProgress, setFormImgProgress] = useState(0);
   const [formImgError, setFormImgError] = useState<string | null>(null);
 
-  // Foto da Corretora no Cabeçalho (Header) state (carregada do Vercel KV via GET /api/configuracoes)
+  // Foto da Corretora no Cabeçalho (Header) state (carregada do Upstash Redis via GET /api/configuracoes)
   const [draftFotoHeader, setDraftFotoHeader] = useState<string>(
     aboutData.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl
   );
@@ -164,7 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setIsBlobConfigured(false);
       });
 
-    // Carrega a URL da foto do cabeçalho salva no banco de dados persistente (Vercel KV / DB)
+    // Carrega a URL da foto do cabeçalho salva no banco de dados persistente (Upstash Redis)
     fetch('/api/configuracoes')
       .then((res) => res.json())
       .then((data) => {
@@ -579,10 +579,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const isCloud = isVercelBlobUrl(publicUrl);
       setToastMessage(
         isCloud
-          ? 'Foto do cabeçalho enviada para o Vercel Blob e salva no banco de dados!'
-          : data.storage === 'vercel-kv'
-          ? 'Foto do cabeçalho salva com sucesso no Vercel KV!'
-          : 'Foto do cabeçalho salva com sucesso no banco de dados!'
+          ? 'Foto do cabeçalho enviada para o Vercel Blob e salva no banco de dados Upstash Redis!'
+          : 'Foto do cabeçalho salva com sucesso no banco de dados Upstash Redis!'
       );
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4500);
@@ -599,7 +597,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setDraftAbout((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Salva a Foto do Cabeçalho no Banco de Dados persistente (Vercel KV / DB)
+  // Salva a Foto do Cabeçalho no Banco de Dados persistente (Upstash Redis)
   const handleSaveHeaderSettings = async () => {
     try {
       const res = await fetch('/api/configuracoes', {
@@ -614,16 +612,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(`HTTP ${res.status}`);
       }
 
-      const data = await res.json();
+      await res.json();
 
       // Dispara evento para o Header atualizar imediatamente em tempo real
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
 
-      setToastMessage(
-        data.storage === 'vercel-kv'
-          ? 'Foto do cabeçalho salva com sucesso no Vercel KV!'
-          : 'Foto do cabeçalho salva com sucesso no banco de dados persistente!'
-      );
+      setToastMessage('Foto do cabeçalho salva com sucesso no banco de dados Upstash Redis!');
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4500);
     } catch (e: any) {
