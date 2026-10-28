@@ -1,10 +1,12 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { del } from '@vercel/blob';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { kv } from '@vercel/kv';
 
 dotenv.config();
 dotenv.config({ path: '.env.local' });
@@ -18,15 +20,154 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Vercel KV / Persistent Storage Helpers
+  const isVercelKvConfigured = Boolean(
+    process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+  );
+
+  const DATA_DIR = path.resolve(__dirname, 'data');
+  const SETTINGS_FILE = path.join(DATA_DIR, 'configuracoes.json');
+
+  const ensureDataDir = () => {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+    } catch (e) {
+      console.warn('[Storage] Não foi possível criar pasta data:', e);
+    }
+  };
+
+  const readLocalSettings = (): Record<string, any> => {
+    try {
+      ensureDataDir();
+      if (fs.existsSync(SETTINGS_FILE)) {
+        const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+        return JSON.parse(raw) || {};
+      }
+    } catch (err) {
+      console.warn('[Storage] Erro ao ler configuracoes.json:', err);
+    }
+    return {};
+  };
+
+  const writeLocalSettings = (data: Record<string, any>) => {
+    try {
+      ensureDataDir();
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[Storage] Erro ao gravar configuracoes.json:', err);
+    }
+  };
+
+  const getDbSetting = async (key: string): Promise<any> => {
+    if (isVercelKvConfigured) {
+      try {
+        const val = await kv.get(key);
+        if (val !== null && val !== undefined) {
+          return val;
+        }
+      } catch (kvErr) {
+        console.warn('[Vercel KV] Erro ao ler do Vercel KV, usando fallback local:', kvErr);
+      }
+    }
+    const local = readLocalSettings();
+    return local[key] ?? null;
+  };
+
+  const setDbSetting = async (key: string, value: any): Promise<{ storage: string }> => {
+    let storageUsed = 'local-db';
+    if (isVercelKvConfigured) {
+      try {
+        await kv.set(key, value);
+        storageUsed = 'vercel-kv';
+      } catch (kvErr) {
+        console.warn('[Vercel KV] Erro ao gravar no Vercel KV, usando fallback local:', kvErr);
+      }
+    }
+
+    // Always mirror to local file for maximum resilience
+    const local = readLocalSettings();
+    local[key] = value;
+    local[`${key}_updatedAt`] = new Date().toISOString();
+    writeLocalSettings(local);
+
+    return { storage: storageUsed };
+  };
+
   // Health check endpoint
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      kvConfigured: isVercelKvConfigured
+    });
   });
 
   // Vercel Blob status endpoint
   app.get('/api/blob/status', (_req, res) => {
     const hasToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-    res.json({ configured: hasToken });
+    res.json({
+      configured: hasToken,
+      kvConfigured: isVercelKvConfigured
+    });
+  });
+
+  // Rota GET /api/configuracoes
+  // Busca a URL da foto do cabeçalho salva no banco de dados persistente
+  app.get('/api/configuracoes', async (_req, res) => {
+    try {
+      const fotoCorretoraHeader = await getDbSetting('fotoCorretoraHeader');
+      return res.json({
+        success: true,
+        fotoCorretoraHeader: fotoCorretoraHeader || null,
+        storage: isVercelKvConfigured ? 'vercel-kv' : 'persistent-db'
+      });
+    } catch (err: any) {
+      console.error('[API /api/configuracoes GET] Erro:', err);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar configurações no banco de dados.',
+        fotoCorretoraHeader: null
+      });
+    }
+  });
+
+  // Rota POST /api/configuracoes
+  // Salva a nova URL da foto no banco de dados (Vercel KV / Postgres / DB persistente)
+  app.post('/api/configuracoes', async (req, res) => {
+    try {
+      const { fotoCorretoraHeader, url, fotoHeader, imageUrl } = req.body || {};
+      const targetUrl = fotoCorretoraHeader ?? url ?? fotoHeader ?? imageUrl;
+
+      if (targetUrl === undefined || targetUrl === null) {
+        return res.status(400).json({
+          success: false,
+          error: 'Nenhuma URL de foto foi fornecida (esperado: fotoCorretoraHeader).'
+        });
+      }
+
+      const cleanUrl = String(targetUrl).trim();
+      const { storage } = await setDbSetting('fotoCorretoraHeader', cleanUrl);
+
+      console.log('[API /api/configuracoes POST] Foto salva com sucesso no banco de dados:', {
+        fotoCorretoraHeader: cleanUrl,
+        storage
+      });
+
+      return res.json({
+        success: true,
+        fotoCorretoraHeader: cleanUrl,
+        storage,
+        message: 'Foto do cabeçalho salva com sucesso no banco de dados!'
+      });
+    } catch (err: any) {
+      console.error('[API /api/configuracoes POST] Erro:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Erro ao salvar configuração no banco de dados.'
+      });
+    }
   });
 
   // Vercel Blob client upload handler using handleUpload from @vercel/blob/client

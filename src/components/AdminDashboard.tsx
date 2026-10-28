@@ -169,6 +169,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .catch(() => {
         setIsBlobConfigured(false);
       });
+
+    // Carrega a URL da foto do cabeçalho salva no banco de dados persistente (Vercel KV / DB)
+    fetch('/api/configuracoes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.fotoCorretoraHeader && typeof data.fotoCorretoraHeader === 'string' && data.fotoCorretoraHeader.trim()) {
+          setDraftFotoHeader(data.fotoCorretoraHeader.trim());
+        }
+      })
+      .catch((err) => {
+        console.warn('[AdminDashboard] Erro ao carregar foto do cabeçalho da API:', err);
+      });
   }, []);
 
   // Suggestions for high-res real estate banner images
@@ -556,18 +568,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       setDraftFotoHeader(publicUrl);
-      localStorage.setItem(FOTO_HEADER_STORAGE_KEY, publicUrl);
+
+      // 3. Salva a nova URL retornada pelo Vercel Blob no Banco de Dados (POST /api/configuracoes)
+      const res = await fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fotoCorretoraHeader: publicUrl })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      // Dispara evento para atualização imediata no cabeçalho
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: publicUrl }));
-      window.dispatchEvent(new Event('storage'));
 
       const isCloud = isVercelBlobUrl(publicUrl);
       setToastMessage(
         isCloud
-          ? 'Foto do cabeçalho salva com sucesso no Vercel Blob e atualizada no site!'
-          : 'Foto do cabeçalho atualizada com sucesso!'
+          ? 'Foto do cabeçalho enviada para o Vercel Blob e salva no banco de dados!'
+          : data.storage === 'vercel-kv'
+          ? 'Foto do cabeçalho salva com sucesso no Vercel KV!'
+          : 'Foto do cabeçalho salva com sucesso no banco de dados!'
       );
       setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 4000);
+      setTimeout(() => setShowSavedToast(false), 4500);
     } catch (err: any) {
       console.error('Erro no upload da foto do cabeçalho para Vercel Blob:', err);
       setHeaderImgError(err?.message || 'Falha no upload da foto do cabeçalho.');
@@ -581,20 +605,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setDraftAbout((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveHeaderSettings = () => {
+  // Salva a Foto do Cabeçalho no Banco de Dados persistente (Vercel KV / DB)
+  const handleSaveHeaderSettings = async () => {
     try {
-      localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
+      const res = await fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fotoCorretoraHeader: draftFotoHeader })
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // Dispara evento para o Header atualizar imediatamente em tempo real
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
-      window.dispatchEvent(new Event('storage'));
-      setToastMessage('Foto do cabeçalho atualizada com sucesso no localStorage!');
+
+      setToastMessage(
+        data.storage === 'vercel-kv'
+          ? 'Foto do cabeçalho salva com sucesso no Vercel KV!'
+          : 'Foto do cabeçalho salva com sucesso no banco de dados persistente!'
+      );
       setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 4000);
-    } catch (e) {
-      console.warn('Erro ao salvar foto do cabeçalho:', e);
+      setTimeout(() => setShowSavedToast(false), 4500);
+    } catch (e: any) {
+      console.error('Erro ao salvar foto do cabeçalho no banco de dados:', e);
+      setToastMessage('Erro ao salvar no banco de dados. Tente novamente.');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 4500);
     }
   };
 
-  const handleSaveAbout = () => {
+  const handleSaveAbout = async () => {
     // If broker photo was on Vercel Blob and was replaced via manual URL input
     if (isVercelBlobUrl(aboutData.brokerImageUrl) && draftAbout.brokerImageUrl !== aboutData.brokerImageUrl) {
       deleteImageFromVercelBlob(aboutData.brokerImageUrl).catch((delErr) => {
@@ -602,24 +648,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // Salva a foto do cabeçalho no localStorage e dispara evento de sincronização em tempo real
+    // Salva a foto do cabeçalho no banco de dados persistente via POST /api/configuracoes
     if (draftFotoHeader) {
-      try {
-        localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
-        window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
-        window.dispatchEvent(new Event('storage'));
-      } catch (e) {
-        console.warn('Erro ao salvar fotoCorretoraHeader:', e);
-      }
+      fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotoCorretoraHeader: draftFotoHeader })
+      })
+        .then(() => {
+          window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+        })
+        .catch((e) => {
+          console.warn('[AdminDashboard] Erro ao sincronizar foto com o banco de dados:', e);
+        });
     }
 
     onSave(draftHero, draftProperties, draftAbout);
-    setToastMessage('Seção A Imobiliária e Foto do Cabeçalho salvas com sucesso no site e no localStorage!');
+    setToastMessage('Seção A Imobiliária e Foto do Cabeçalho salvas no banco de dados!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     // If the banner was replaced with another URL and the original was on Vercel Blob, delete the old one
     if (isVercelBlobUrl(heroData.bgImageUrl) && draftHero.bgImageUrl !== heroData.bgImageUrl) {
       deleteImageFromVercelBlob(heroData.bgImageUrl).catch((delErr) => {
@@ -634,32 +684,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // Salva a foto do cabeçalho no localStorage e dispara evento de sincronização em tempo real
+    // Salva a foto do cabeçalho no banco de dados persistente via POST /api/configuracoes
     if (draftFotoHeader) {
-      try {
-        localStorage.setItem(FOTO_HEADER_STORAGE_KEY, draftFotoHeader);
-        window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
-        window.dispatchEvent(new Event('storage'));
-      } catch (e) {
-        console.warn('Erro ao salvar fotoCorretoraHeader:', e);
-      }
+      fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotoCorretoraHeader: draftFotoHeader })
+      })
+        .then(() => {
+          window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+        })
+        .catch((e) => {
+          console.warn('[AdminDashboard] Erro ao sincronizar foto com o banco de dados:', e);
+        });
     }
 
     onSave(draftHero, draftProperties, draftAbout);
-    setToastMessage('Todas as alterações foram salvas com sucesso no site e no localStorage!');
+    setToastMessage('Todas as alterações foram salvas com sucesso no banco de dados!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
 
   const handleConfirmReset = () => {
     onResetDefaults();
-    try {
-      localStorage.removeItem(FOTO_HEADER_STORAGE_KEY);
-      window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
-      window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn(e);
-    }
+    fetch('/api/configuracoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl })
+    }).catch((e) => console.warn(e));
+
+    window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
     setDraftFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl);
     setConfirmResetModal(false);
     onClose();
@@ -1251,12 +1305,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-bold text-emerald-300">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span>Chave: fotoCorretoraHeader</span>
+                      <span>Banco de Dados Persistente</span>
                     </div>
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Esta foto aparece no cabeçalho fixo no topo de todas as páginas, posicionada ao lado esquerdo da logo oficial da imobiliária. As alterações são salvas no Local Storage sob a chave <code className="text-amber-400 font-mono text-[11px]">fotoCorretoraHeader</code>.
+                    Esta foto aparece no cabeçalho fixo no topo de todas as páginas, posicionada ao lado esquerdo da logo oficial da imobiliária. A foto é salva no <strong>Banco de Dados</strong> (Vercel KV / persistente) através da API <code className="text-amber-400 font-mono text-[11px]">/api/configuracoes</code>, visível para todos os visitantes em qualquer dispositivo.
                   </p>
 
                   {/* Prévia ao vivo do Cabeçalho */}
@@ -1597,12 +1651,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-bold text-emerald-300">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span>Chave: fotoCorretoraHeader</span>
+                      <span>Banco de Dados Persistente</span>
                     </span>
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Esta foto é exibida no cabeçalho fixo no topo de todas as páginas, posicionada diretamente ao lado da logo oficial da imobiliária. O valor é salvo no <strong>localStorage</strong> sob a chave <code className="text-amber-400 font-mono text-xs font-bold">fotoCorretoraHeader</code>.
+                    Esta foto é exibida no cabeçalho fixo no topo de todas as páginas, posicionada diretamente ao lado da logo oficial da imobiliária. O valor é salvo no <strong>Banco de Dados</strong> (Vercel KV / persistente) através da rota <code className="text-amber-400 font-mono text-xs font-bold">/api/configuracoes</code>, visível publicamente para qualquer visitante em qualquer dispositivo.
                   </p>
 
                   {/* Input field strictly formatted as requested: label + <input type="text"> */}
@@ -1754,7 +1808,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>Sincronização imediata no site</span>
                     </p>
                     <p className="text-slate-400">
-                      Chave no Local Storage: <code className="text-amber-300 font-mono">fotoCorretoraHeader</code>
+                      Armazenamento: <code className="text-amber-300 font-mono">Banco de Dados (Vercel KV / Persistente)</code>
                     </p>
                   </div>
                 </div>

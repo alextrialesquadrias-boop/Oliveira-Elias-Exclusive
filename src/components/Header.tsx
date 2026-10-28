@@ -12,77 +12,58 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, brokerImageUrl }) =>
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // FOTO DA CORRETORA NO CABEÇALHO:
-  // Estado 'fotoHeader' com busca inicial e persistência sob a chave 'fotoCorretoraHeader' no localStorage
-  const [fotoHeader, setFotoHeader] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
-      if (saved) return saved;
+  // Carregada do Banco de Dados persistente via API GET /api/configuracoes.
+  // Fallback: se o banco de dados estiver vazio (primeiro acesso), mantém a imagem padrão atual.
+  const [fotoHeader, setFotoHeader] = useState<string>(
+    brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl
+  );
 
-      const siteData = localStorage.getItem(STORAGE_KEY);
-      if (siteData) {
-        const parsed = JSON.parse(siteData);
-        if (parsed.about?.brokerImageUrl) {
-          return parsed.about.brokerImageUrl;
-        }
-      }
-    } catch (e) {
-      console.warn('Erro ao carregar fotoHeader do localStorage:', e);
-    }
-    return brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl;
-  });
-
-  // useEffect para carregar do localStorage na montagem e manter sincronizado em tempo real (storage + custom event)
+  // useEffect para buscar a URL da foto salva no Banco de Dados (GET /api/configuracoes) ao carregar o componente
   useEffect(() => {
-    const syncFotoHeader = () => {
+    let isMounted = true;
+
+    const carregarFotoDoBanco = async () => {
       try {
-        const saved = localStorage.getItem(FOTO_HEADER_STORAGE_KEY);
-        if (saved) {
-          setFotoHeader(saved);
-          return;
-        }
-        const siteData = localStorage.getItem(STORAGE_KEY);
-        if (siteData) {
-          const parsed = JSON.parse(siteData);
-          if (parsed.about?.brokerImageUrl) {
-            setFotoHeader(parsed.about.brokerImageUrl);
+        const response = await fetch('/api/configuracoes');
+        if (response.ok) {
+          const data = await response.json();
+          if (
+            data?.fotoCorretoraHeader &&
+            typeof data.fotoCorretoraHeader === 'string' &&
+            data.fotoCorretoraHeader.trim()
+          ) {
+            if (isMounted) {
+              setFotoHeader(data.fotoCorretoraHeader.trim());
+            }
             return;
           }
         }
-      } catch (e) {
-        console.warn('Erro no sync de fotoCorretoraHeader:', e);
+      } catch (error) {
+        console.warn('[Header] Erro ao carregar foto do cabeçalho de /api/configuracoes:', error);
       }
-      if (brokerImageUrl) {
-        setFotoHeader(brokerImageUrl);
-      } else {
-        setFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl);
-      }
-    };
 
-    // Sincronização inicial
-    syncFotoHeader();
-
-    // Listener para eventos de storage do navegador (ex: abas cruzadas)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === FOTO_HEADER_STORAGE_KEY || e.key === STORAGE_KEY || !e.key) {
-        syncFotoHeader();
+      // Fallback: se o banco de dados estiver vazio, mantém a imagem padrão atual
+      if (isMounted) {
+        setFotoHeader(brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl);
       }
     };
 
-    // Listener para evento customizado de salvamento instantâneo no Painel Administrativo
+    carregarFotoDoBanco();
+
+    // Listener para evento de atualização instantânea disparado pelo Painel Administrativo
     const handleCustomEvent = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
         setFotoHeader(customEvent.detail);
       } else {
-        syncFotoHeader();
+        carregarFotoDoBanco();
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('fotoCorretoraHeaderUpdated', handleCustomEvent);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      isMounted = false;
       window.removeEventListener('fotoCorretoraHeaderUpdated', handleCustomEvent);
     };
   }, [brokerImageUrl]);

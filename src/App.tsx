@@ -145,6 +145,11 @@ export default function App() {
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(FOTO_HEADER_STORAGE_KEY);
+      fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl })
+      }).catch((e) => console.warn(e));
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {
