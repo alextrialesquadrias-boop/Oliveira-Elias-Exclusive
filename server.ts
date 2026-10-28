@@ -20,35 +20,54 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Configuração do Cliente Upstash Redis com suporte a ARMAZENAR_URL e ARMAZENAR_TOKEN
-  const upstashUrl =
-    process.env.ARMAZENAR_URL ||
-    process.env.ARMAZENAR_REST_API_URL ||
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.KV_REST_API_URL;
+  // Mapeia variáveis legadas ou customizadas para KV_REST_API_* caso existam
+  if (process.env.ARMAZENAR_URL && !process.env.KV_REST_API_URL) {
+    process.env.KV_REST_API_URL = process.env.ARMAZENAR_URL;
+  }
+  if (process.env.ARMAZENAR_REST_API_URL && !process.env.KV_REST_API_URL) {
+    process.env.KV_REST_API_URL = process.env.ARMAZENAR_REST_API_URL;
+  }
+  if (process.env.ARMAZENAR_TOKEN && !process.env.KV_REST_API_TOKEN) {
+    process.env.KV_REST_API_TOKEN = process.env.ARMAZENAR_TOKEN;
+  }
+  if (process.env.ARMAZENAR_REST_API_TOKEN && !process.env.KV_REST_API_TOKEN) {
+    process.env.KV_REST_API_TOKEN = process.env.ARMAZENAR_REST_API_TOKEN;
+  }
 
-  const upstashToken =
-    process.env.ARMAZENAR_TOKEN ||
-    process.env.ARMAZENAR_REST_API_TOKEN ||
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.KV_REST_API_TOKEN;
-
+  // Conexão com Upstash Redis usando Redis.fromEnv()
+  // O Redis.fromEnv() lê automaticamente KV_REST_API_URL e KV_REST_API_TOKEN (e UPSTASH_REDIS_REST_URL/TOKEN)
   let redisClient: Redis | null = null;
-  const isRedisConfigured = Boolean(upstashUrl && upstashToken);
+  const isRedisConfigured = Boolean(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  );
+
+  const getRedisClient = (): Redis | null => {
+    if (redisClient) return redisClient;
+    try {
+      if (
+        (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+        (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+      ) {
+        redisClient = Redis.fromEnv();
+        return redisClient;
+      }
+    } catch (err) {
+      console.warn('[Upstash Redis] Erro ao instanciar com Redis.fromEnv():', err);
+    }
+    return null;
+  };
 
   if (isRedisConfigured) {
     try {
-      redisClient = new Redis({
-        url: upstashUrl!,
-        token: upstashToken!
-      });
-      console.log('[Upstash Redis] Cliente conectado com sucesso usando ARMAZENAR_URL.');
+      redisClient = Redis.fromEnv();
+      console.log('[Upstash Redis] Conectado via Redis.fromEnv() (KV_REST_API_URL e KV_REST_API_TOKEN detectados no Vercel).');
     } catch (err) {
-      console.warn('[Upstash Redis] Erro ao instanciar cliente Redis:', err);
+      console.warn('[Upstash Redis] Falha inicial ao executar Redis.fromEnv():', err);
     }
   } else {
     console.info(
-      '[Upstash Redis] Variáveis ARMAZENAR_URL / ARMAZENAR_TOKEN não detectadas no ambiente local. Usando persistência local segura com fallback.'
+      '[Upstash Redis] Variáveis KV_REST_API_URL e KV_REST_API_TOKEN não detectadas localmente. Usando persistência local com fallback.'
     );
   }
 
@@ -90,19 +109,20 @@ async function startServer() {
   const KV_HEADER_KEY = 'config:fotoCorretoraHeader';
 
   const getDbSetting = async (key: string = KV_HEADER_KEY): Promise<string | null> => {
-    if (redisClient) {
+    const client = getRedisClient();
+    if (client) {
       try {
-        const val = await redisClient.get<string>(key);
+        const val = await client.get<string>(key);
         if (val !== null && val !== undefined && typeof val === 'string' && val.trim()) {
           return val.trim();
         }
         // Fallback para chave sem prefixo
-        const altVal = await redisClient.get<string>('fotoCorretoraHeader');
+        const altVal = await client.get<string>('fotoCorretoraHeader');
         if (altVal !== null && altVal !== undefined && typeof altVal === 'string' && altVal.trim()) {
           return altVal.trim();
         }
       } catch (kvErr) {
-        console.warn('[Upstash Redis] Erro ao ler do Redis (tratado com fallback):', kvErr);
+        console.warn('[Upstash Redis] Erro ao ler com Redis.fromEnv() (tratado com fallback):', kvErr);
       }
     }
 
@@ -113,13 +133,14 @@ async function startServer() {
 
   const setDbSetting = async (key: string = KV_HEADER_KEY, value: string): Promise<{ storage: string }> => {
     let storageUsed = 'local-db';
-    if (redisClient) {
+    const client = getRedisClient();
+    if (client) {
       try {
-        await redisClient.set(key, value);
-        await redisClient.set('fotoCorretoraHeader', value);
+        await client.set(key, value);
+        await client.set('fotoCorretoraHeader', value);
         storageUsed = 'upstash-redis';
       } catch (kvErr) {
-        console.warn('[Upstash Redis] Erro ao gravar no Redis, usando fallback local:', kvErr);
+        console.warn('[Upstash Redis] Erro ao gravar com Redis.fromEnv(), usando fallback local:', kvErr);
       }
     }
 
@@ -159,7 +180,7 @@ async function startServer() {
       return res.json({
         success: true,
         fotoCorretoraHeader: fotoCorretoraHeader || null,
-        storage: redisClient ? 'upstash-redis' : 'local-db'
+        storage: getRedisClient() ? 'upstash-redis' : 'local-db'
       });
     } catch (err: any) {
       console.warn('[API /api/configuracoes GET] Erro tratado graciosamente:', err);
