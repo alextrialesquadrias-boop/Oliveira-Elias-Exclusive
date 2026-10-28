@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { del } from '@vercel/blob';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 
 dotenv.config();
 dotenv.config({ path: '.env.local' });
@@ -20,10 +20,37 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Vercel KV / Persistent Storage Helpers
-  const isVercelKvConfigured = Boolean(
-    process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
-  );
+  // Configuração do Cliente Upstash Redis com suporte a ARMAZENAR_URL e ARMAZENAR_TOKEN
+  const upstashUrl =
+    process.env.ARMAZENAR_URL ||
+    process.env.ARMAZENAR_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL;
+
+  const upstashToken =
+    process.env.ARMAZENAR_TOKEN ||
+    process.env.ARMAZENAR_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_TOKEN;
+
+  let redisClient: Redis | null = null;
+  const isRedisConfigured = Boolean(upstashUrl && upstashToken);
+
+  if (isRedisConfigured) {
+    try {
+      redisClient = new Redis({
+        url: upstashUrl!,
+        token: upstashToken!
+      });
+      console.log('[Upstash Redis] Cliente conectado com sucesso usando ARMAZENAR_URL.');
+    } catch (err) {
+      console.warn('[Upstash Redis] Erro ao instanciar cliente Redis:', err);
+    }
+  } else {
+    console.info(
+      '[Upstash Redis] Variáveis ARMAZENAR_URL / ARMAZENAR_TOKEN não detectadas no ambiente local. Usando persistência local segura com fallback.'
+    );
+  }
 
   const DATA_DIR = path.resolve(__dirname, 'data');
   const SETTINGS_FILE = path.join(DATA_DIR, 'configuracoes.json');
@@ -63,17 +90,20 @@ async function startServer() {
   const KV_HEADER_KEY = 'config:fotoCorretoraHeader';
 
   const getDbSetting = async (key: string = KV_HEADER_KEY): Promise<string | null> => {
-    if (isVercelKvConfigured) {
+    if (redisClient) {
       try {
-        const val = await kv.get<string>(key);
+        const val = await redisClient.get<string>(key);
         if (val !== null && val !== undefined && typeof val === 'string' && val.trim()) {
           return val.trim();
         }
+        // Fallback para chave sem prefixo
+        const altVal = await redisClient.get<string>('fotoCorretoraHeader');
+        if (altVal !== null && altVal !== undefined && typeof altVal === 'string' && altVal.trim()) {
+          return altVal.trim();
+        }
       } catch (kvErr) {
-        console.warn('[Vercel KV] Erro ao ler do Vercel KV (tratado graciosamente):', kvErr);
+        console.warn('[Upstash Redis] Erro ao ler do Redis (tratado com fallback):', kvErr);
       }
-    } else {
-      console.warn('[Vercel KV] Aviso: Vercel KV não configurado no ambiente. Utilizando armazenamento persistente local.');
     }
 
     const local = readLocalSettings();
@@ -83,18 +113,17 @@ async function startServer() {
 
   const setDbSetting = async (key: string = KV_HEADER_KEY, value: string): Promise<{ storage: string }> => {
     let storageUsed = 'local-db';
-    if (isVercelKvConfigured) {
+    if (redisClient) {
       try {
-        await kv.set(key, value);
-        storageUsed = 'vercel-kv';
+        await redisClient.set(key, value);
+        await redisClient.set('fotoCorretoraHeader', value);
+        storageUsed = 'upstash-redis';
       } catch (kvErr) {
-        console.warn('[Vercel KV] Erro ao gravar no Vercel KV, usando fallback local:', kvErr);
+        console.warn('[Upstash Redis] Erro ao gravar no Redis, usando fallback local:', kvErr);
       }
-    } else {
-      console.warn('[Vercel KV] Aviso: Vercel KV não configurado no ambiente. Salvando no armazenamento persistente local.');
     }
 
-    // Always mirror to local file for offline and restart resilience
+    // Grava também no arquivo local para garantir resiliência offline e reinicializações
     const local = readLocalSettings();
     local[key] = value;
     local['fotoCorretoraHeader'] = value;
@@ -109,27 +138,28 @@ async function startServer() {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      kvConfigured: isVercelKvConfigured
+      redisConfigured: isRedisConfigured
     });
   });
 
-  // Vercel Blob status endpoint
+  // Upstash Redis / Vercel Blob status endpoint
   app.get('/api/blob/status', (_req, res) => {
     const hasToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
     res.json({
       configured: hasToken,
-      kvConfigured: isVercelKvConfigured
+      redisConfigured: isRedisConfigured
     });
   });
 
   // Rota GET /api/configuracoes
-  // Retorna a URL da foto salva no Vercel KV (chave: config:fotoCorretoraHeader)
+  // Retorna a URL da foto salva no Upstash Redis (chave: config:fotoCorretoraHeader)
   app.get('/api/configuracoes', async (_req, res) => {
     try {
       const fotoCorretoraHeader = await getDbSetting(KV_HEADER_KEY);
       return res.json({
         success: true,
-        fotoCorretoraHeader: fotoCorretoraHeader || null
+        fotoCorretoraHeader: fotoCorretoraHeader || null,
+        storage: redisClient ? 'upstash-redis' : 'local-db'
       });
     } catch (err: any) {
       console.warn('[API /api/configuracoes GET] Erro tratado graciosamente:', err);
@@ -141,7 +171,7 @@ async function startServer() {
   });
 
   // Rota POST /api/configuracoes
-  // Salva a nova URL da foto no Vercel KV usando a chave config:fotoCorretoraHeader
+  // Salva a nova URL da foto no Upstash Redis usando a chave config:fotoCorretoraHeader
   app.post('/api/configuracoes', async (req, res) => {
     try {
       const { fotoCorretoraHeader, url, fotoHeader, imageUrl } = req.body || {};
@@ -155,13 +185,15 @@ async function startServer() {
       }
 
       const cleanUrl = targetUrl.trim();
-      await setDbSetting(KV_HEADER_KEY, cleanUrl);
+      const { storage } = await setDbSetting(KV_HEADER_KEY, cleanUrl);
 
-      console.log('[API /api/configuracoes POST] URL salva com sucesso no Vercel KV (chave: config:fotoCorretoraHeader):', cleanUrl);
+      console.log('[API /api/configuracoes POST] URL salva com sucesso no Upstash Redis:', cleanUrl);
 
       return res.json({
         success: true,
-        fotoCorretoraHeader: cleanUrl
+        fotoCorretoraHeader: cleanUrl,
+        storage,
+        message: 'Foto do cabeçalho salva com sucesso no banco de dados Upstash Redis!'
       });
     } catch (err: any) {
       console.error('[API /api/configuracoes POST] Erro ao salvar:', err);
