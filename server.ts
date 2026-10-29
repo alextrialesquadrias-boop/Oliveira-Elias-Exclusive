@@ -107,8 +107,10 @@ async function startServer() {
   };
 
   const KV_HEADER_KEY = 'config:fotoCorretoraHeader';
+  const KV_SOBRE_KEY = 'config:fotoSobre';
 
-  const getDbSetting = async (key: string = KV_HEADER_KEY): Promise<string | null> => {
+  const getDbSetting = async (key: string): Promise<string | null> => {
+    const cleanKey = key.replace(/^config:/, '');
     const client = getRedisClient();
     if (client) {
       try {
@@ -116,38 +118,39 @@ async function startServer() {
         if (val !== null && val !== undefined && typeof val === 'string' && val.trim()) {
           return val.trim();
         }
-        // Fallback para chave sem prefixo
-        const altVal = await client.get<string>('fotoCorretoraHeader');
+        // Fallback para chave sem prefixo config:
+        const altVal = await client.get<string>(cleanKey);
         if (altVal !== null && altVal !== undefined && typeof altVal === 'string' && altVal.trim()) {
           return altVal.trim();
         }
       } catch (kvErr) {
-        console.warn('[Upstash Redis] Erro ao ler com Redis.fromEnv() (tratado com fallback):', kvErr);
+        console.warn(`[Upstash Redis] Erro ao ler ${key} com Redis.fromEnv() (tratado com fallback):`, kvErr);
       }
     }
 
     const local = readLocalSettings();
-    const localVal = local[key] ?? local['fotoCorretoraHeader'] ?? null;
+    const localVal = local[key] ?? local[cleanKey] ?? null;
     return localVal ? String(localVal).trim() : null;
   };
 
-  const setDbSetting = async (key: string = KV_HEADER_KEY, value: string): Promise<{ storage: string }> => {
+  const setDbSetting = async (key: string, value: string): Promise<{ storage: string }> => {
     let storageUsed = 'local-db';
+    const cleanKey = key.replace(/^config:/, '');
     const client = getRedisClient();
     if (client) {
       try {
         await client.set(key, value);
-        await client.set('fotoCorretoraHeader', value);
+        await client.set(cleanKey, value);
         storageUsed = 'upstash-redis';
       } catch (kvErr) {
-        console.warn('[Upstash Redis] Erro ao gravar com Redis.fromEnv(), usando fallback local:', kvErr);
+        console.warn(`[Upstash Redis] Erro ao gravar ${key} com Redis.fromEnv(), usando fallback local:`, kvErr);
       }
     }
 
     // Grava também no arquivo local para garantir resiliência offline e reinicializações
     const local = readLocalSettings();
     local[key] = value;
-    local['fotoCorretoraHeader'] = value;
+    local[cleanKey] = value;
     local[`${key}_updatedAt`] = new Date().toISOString();
     writeLocalSettings(local);
 
@@ -173,48 +176,91 @@ async function startServer() {
   });
 
   // Rota GET /api/configuracoes
-  // Retorna a URL da foto salva no Upstash Redis (chave: config:fotoCorretoraHeader)
+  // Retorna a URL da foto do cabeçalho e da seção Sobre salvas no Upstash Redis
   app.get('/api/configuracoes', async (_req, res) => {
     try {
-      const fotoCorretoraHeader = await getDbSetting(KV_HEADER_KEY);
+      const [fotoCorretoraHeader, fotoSobre] = await Promise.all([
+        getDbSetting(KV_HEADER_KEY),
+        getDbSetting(KV_SOBRE_KEY)
+      ]);
+
       return res.json({
         success: true,
         fotoCorretoraHeader: fotoCorretoraHeader || null,
+        fotoSobre: fotoSobre || null,
         storage: getRedisClient() ? 'upstash-redis' : 'local-db'
       });
     } catch (err: any) {
       console.warn('[API /api/configuracoes GET] Erro tratado graciosamente:', err);
       return res.json({
         success: true,
-        fotoCorretoraHeader: null
+        fotoCorretoraHeader: null,
+        fotoSobre: null
       });
     }
   });
 
   // Rota POST /api/configuracoes
-  // Salva a nova URL da foto no Upstash Redis usando a chave config:fotoCorretoraHeader
+  // Salva a URL da foto do cabeçalho e/ou da seção Sobre no Upstash Redis
   app.post('/api/configuracoes', async (req, res) => {
     try {
-      const { fotoCorretoraHeader, url, fotoHeader, imageUrl } = req.body || {};
-      const targetUrl = fotoCorretoraHeader ?? url ?? fotoHeader ?? imageUrl;
+      const {
+        fotoCorretoraHeader,
+        fotoSobre,
+        fotoCorretoraSobre,
+        url,
+        fotoHeader,
+        imageUrl,
+        type
+      } = req.body || {};
 
-      if (!targetUrl || typeof targetUrl !== 'string' || !targetUrl.trim()) {
+      let headerUrl = fotoCorretoraHeader ?? fotoHeader;
+      let sobreUrl = fotoSobre ?? fotoCorretoraSobre;
+
+      // Suporte a chamada com url genérica e type
+      if (!headerUrl && !sobreUrl && (url || imageUrl)) {
+        const target = url || imageUrl;
+        if (type === 'sobre') {
+          sobreUrl = target;
+        } else {
+          headerUrl = target;
+        }
+      }
+
+      if (!headerUrl && !sobreUrl) {
         return res.status(400).json({
           success: false,
-          error: 'Nenhuma URL de foto foi fornecida (esperado: { fotoCorretoraHeader: "NOVA_URL" }).'
+          error: 'Nenhuma URL de foto foi fornecida (esperado: { fotoCorretoraHeader: "URL" } ou { fotoSobre: "URL" }).'
         });
       }
 
-      const cleanUrl = targetUrl.trim();
-      const { storage } = await setDbSetting(KV_HEADER_KEY, cleanUrl);
+      let storageUsed = 'local-db';
 
-      console.log('[API /api/configuracoes POST] URL salva com sucesso no Upstash Redis:', cleanUrl);
+      if (headerUrl && typeof headerUrl === 'string' && headerUrl.trim()) {
+        const cleanHeader = headerUrl.trim();
+        const resHeader = await setDbSetting(KV_HEADER_KEY, cleanHeader);
+        storageUsed = resHeader.storage;
+        console.log('[API /api/configuracoes POST] Foto do cabeçalho salva no Upstash Redis:', cleanHeader);
+      }
+
+      if (sobreUrl && typeof sobreUrl === 'string' && sobreUrl.trim()) {
+        const cleanSobre = sobreUrl.trim();
+        const resSobre = await setDbSetting(KV_SOBRE_KEY, cleanSobre);
+        storageUsed = resSobre.storage;
+        console.log('[API /api/configuracoes POST] Foto da seção Sobre salva no Upstash Redis:', cleanSobre);
+      }
+
+      const [currentHeader, currentSobre] = await Promise.all([
+        getDbSetting(KV_HEADER_KEY),
+        getDbSetting(KV_SOBRE_KEY)
+      ]);
 
       return res.json({
         success: true,
-        fotoCorretoraHeader: cleanUrl,
-        storage,
-        message: 'Foto do cabeçalho salva com sucesso no banco de dados Upstash Redis!'
+        fotoCorretoraHeader: currentHeader || null,
+        fotoSobre: currentSobre || null,
+        storage: storageUsed,
+        message: 'Configurações salvas com sucesso no banco de dados Upstash Redis!'
       });
     } catch (err: any) {
       console.error('[API /api/configuracoes POST] Erro ao salvar:', err);

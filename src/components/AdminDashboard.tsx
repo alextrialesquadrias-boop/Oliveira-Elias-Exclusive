@@ -164,16 +164,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setIsBlobConfigured(false);
       });
 
-    // Carrega a URL da foto do cabeçalho salva no banco de dados persistente (Upstash Redis)
+    // Carrega as URLs das fotos do cabeçalho e da seção Sobre salvas no banco persistente (Upstash Redis)
     fetch('/api/configuracoes')
       .then((res) => res.json())
       .then((data) => {
         if (data?.fotoCorretoraHeader && typeof data.fotoCorretoraHeader === 'string' && data.fotoCorretoraHeader.trim()) {
           setDraftFotoHeader(data.fotoCorretoraHeader.trim());
         }
+        if (data?.fotoSobre && typeof data.fotoSobre === 'string' && data.fotoSobre.trim()) {
+          setDraftAbout((prev) => ({ ...prev, brokerImageUrl: data.fotoSobre.trim() }));
+        }
       })
       .catch((err) => {
-        console.warn('[AdminDashboard] Erro ao carregar foto do cabeçalho da API:', err);
+        console.warn('[AdminDashboard] Erro ao carregar fotos da API:', err);
       });
   }, []);
 
@@ -520,11 +523,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDraftAbout(updatedAbout);
       onSave(draftHero, draftProperties, updatedAbout);
 
+      // Salva a nova URL no banco de dados persistente (Upstash Redis) via POST /api/configuracoes
+      fetch('/api/configuracoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotoSobre: publicUrl })
+      })
+        .then(() => {
+          window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: publicUrl }));
+        })
+        .catch((e) => {
+          console.warn('[AdminDashboard] Erro ao sincronizar fotoSobre com o banco de dados:', e);
+        });
+
       const isCloud = isVercelBlobUrl(publicUrl);
       setToastMessage(
         isCloud
-          ? 'Foto da corretora salva com sucesso no Vercel Blob!'
-          : 'Foto da corretora atualizada com sucesso!'
+          ? 'Foto da corretora enviada para o Vercel Blob e salva no banco de dados!'
+          : 'Foto da corretora salva com sucesso no banco de dados Upstash Redis!'
       );
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
@@ -636,23 +652,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // Salva a foto do cabeçalho no banco de dados persistente via POST /api/configuracoes
-    if (draftFotoHeader) {
+    // Salva a foto da seção Sobre e do cabeçalho no banco de dados persistente via POST /api/configuracoes
+    const payload: { fotoSobre?: string; fotoCorretoraHeader?: string } = {};
+    if (draftAbout.brokerImageUrl) payload.fotoSobre = draftAbout.brokerImageUrl;
+    if (draftFotoHeader) payload.fotoCorretoraHeader = draftFotoHeader;
+
+    if (Object.keys(payload).length > 0) {
       fetch('/api/configuracoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fotoCorretoraHeader: draftFotoHeader })
+        body: JSON.stringify(payload)
       })
         .then(() => {
-          window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+          if (payload.fotoSobre) {
+            window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: payload.fotoSobre }));
+          }
+          if (payload.fotoCorretoraHeader) {
+            window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: payload.fotoCorretoraHeader }));
+          }
         })
         .catch((e) => {
-          console.warn('[AdminDashboard] Erro ao sincronizar foto com o banco de dados:', e);
+          console.warn('[AdminDashboard] Erro ao sincronizar fotos com o banco de dados:', e);
         });
     }
 
     onSave(draftHero, draftProperties, draftAbout);
-    setToastMessage('Seção A Imobiliária e Foto do Cabeçalho salvas no banco de dados!');
+    setToastMessage('Seção A Imobiliária salva no banco de dados Upstash Redis!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
@@ -672,23 +697,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // Salva a foto do cabeçalho no banco de dados persistente via POST /api/configuracoes
-    if (draftFotoHeader) {
+    // Salva as fotos no banco de dados persistente via POST /api/configuracoes
+    const payload: { fotoSobre?: string; fotoCorretoraHeader?: string } = {};
+    if (draftAbout.brokerImageUrl) payload.fotoSobre = draftAbout.brokerImageUrl;
+    if (draftFotoHeader) payload.fotoCorretoraHeader = draftFotoHeader;
+
+    if (Object.keys(payload).length > 0) {
       fetch('/api/configuracoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fotoCorretoraHeader: draftFotoHeader })
+        body: JSON.stringify(payload)
       })
         .then(() => {
-          window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: draftFotoHeader }));
+          if (payload.fotoSobre) {
+            window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: payload.fotoSobre }));
+          }
+          if (payload.fotoCorretoraHeader) {
+            window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: payload.fotoCorretoraHeader }));
+          }
         })
         .catch((e) => {
-          console.warn('[AdminDashboard] Erro ao sincronizar foto com o banco de dados:', e);
+          console.warn('[AdminDashboard] Erro ao sincronizar fotos com o banco de dados:', e);
         });
     }
 
     onSave(draftHero, draftProperties, draftAbout);
-    setToastMessage('Todas as alterações foram salvas com sucesso no banco de dados!');
+    setToastMessage('Todas as alterações foram salvas com sucesso no banco de dados Upstash Redis!');
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
@@ -698,11 +732,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetch('/api/configuracoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl })
+      body: JSON.stringify({
+        fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl,
+        fotoSobre: DEFAULT_ABOUT_DATA.brokerImageUrl
+      })
     }).catch((e) => console.warn(e));
 
     window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
+    window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
     setDraftFotoHeader(DEFAULT_ABOUT_DATA.brokerImageUrl);
+    setDraftAbout((prev) => ({ ...prev, brokerImageUrl: DEFAULT_ABOUT_DATA.brokerImageUrl }));
     setConfirmResetModal(false);
     onClose();
   };

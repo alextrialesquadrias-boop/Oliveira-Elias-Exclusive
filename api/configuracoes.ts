@@ -1,10 +1,12 @@
 import { Redis } from '@upstash/redis';
 
 const KV_HEADER_KEY = 'config:fotoCorretoraHeader';
+const KV_SOBRE_KEY = 'config:fotoSobre';
 
 /**
  * Vercel Serverless Function: /api/configuracoes
  * Conecta via Redis.fromEnv() que lê automaticamente KV_REST_API_URL e KV_REST_API_TOKEN.
+ * Gerencia a Foto do Cabeçalho e a Foto da Seção Sobre com persistência global.
  */
 export default async function handler(req: any, res: any) {
   // Configuração CORS
@@ -28,67 +30,105 @@ export default async function handler(req: any, res: any) {
     console.warn('[Vercel Serverless] Redis.fromEnv() aviso:', e);
   }
 
-  // GET: Retorna a foto salva ou null caso o banco esteja vazio
+  // GET: Retorna as fotos salvas (cabeçalho e sobre) ou null caso o banco esteja vazio
   if (req.method === 'GET') {
     try {
+      let fotoCorretoraHeader: string | null = null;
+      let fotoSobre: string | null = null;
+
       if (redis) {
-        const url = await redis.get<string>(KV_HEADER_KEY);
-        if (url && typeof url === 'string' && url.trim()) {
-          return res.status(200).json({
-            success: true,
-            fotoCorretoraHeader: url.trim(),
-            storage: 'upstash-redis'
-          });
+        // Foto do Cabeçalho
+        const headerVal = await redis.get<string>(KV_HEADER_KEY);
+        if (headerVal && typeof headerVal === 'string' && headerVal.trim()) {
+          fotoCorretoraHeader = headerVal.trim();
+        } else {
+          const altHeader = await redis.get<string>('fotoCorretoraHeader');
+          if (altHeader && typeof altHeader === 'string' && altHeader.trim()) {
+            fotoCorretoraHeader = altHeader.trim();
+          }
         }
 
-        const altUrl = await redis.get<string>('fotoCorretoraHeader');
-        if (altUrl && typeof altUrl === 'string' && altUrl.trim()) {
-          return res.status(200).json({
-            success: true,
-            fotoCorretoraHeader: altUrl.trim(),
-            storage: 'upstash-redis'
-          });
+        // Foto da Seção Sobre
+        const sobreVal = await redis.get<string>(KV_SOBRE_KEY);
+        if (sobreVal && typeof sobreVal === 'string' && sobreVal.trim()) {
+          fotoSobre = sobreVal.trim();
+        } else {
+          const altSobre = await redis.get<string>('fotoSobre');
+          if (altSobre && typeof altSobre === 'string' && altSobre.trim()) {
+            fotoSobre = altSobre.trim();
+          }
         }
       }
 
       return res.status(200).json({
         success: true,
-        fotoCorretoraHeader: null,
+        fotoCorretoraHeader,
+        fotoSobre,
         storage: redis ? 'upstash-redis' : 'none'
       });
     } catch (err: any) {
       console.warn('[Vercel Serverless GET] Erro ao buscar do Redis:', err);
       return res.status(200).json({
         success: true,
-        fotoCorretoraHeader: null
+        fotoCorretoraHeader: null,
+        fotoSobre: null
       });
     }
   }
 
-  // POST: Salva a nova URL enviada pelo painel administrativo
+  // POST: Salva as URLs enviadas pelo painel administrativo
   if (req.method === 'POST') {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-      const { fotoCorretoraHeader, url, fotoHeader, imageUrl } = body;
-      const targetUrl = fotoCorretoraHeader ?? url ?? fotoHeader ?? imageUrl;
+      const {
+        fotoCorretoraHeader,
+        fotoSobre,
+        fotoCorretoraSobre,
+        url,
+        fotoHeader,
+        imageUrl,
+        type
+      } = body;
 
-      if (!targetUrl || typeof targetUrl !== 'string' || !targetUrl.trim()) {
+      let headerUrl = fotoCorretoraHeader ?? fotoHeader;
+      let sobreUrl = fotoSobre ?? fotoCorretoraSobre;
+
+      if (!headerUrl && !sobreUrl && (url || imageUrl)) {
+        const target = url || imageUrl;
+        if (type === 'sobre') {
+          sobreUrl = target;
+        } else {
+          headerUrl = target;
+        }
+      }
+
+      if (!headerUrl && !sobreUrl) {
         return res.status(400).json({
           success: false,
-          error: 'Nenhuma URL de foto fornecida (esperado: { fotoCorretoraHeader: "NOVA_URL" }).'
+          error: 'Nenhuma URL de foto fornecida (esperado: { fotoCorretoraHeader: "URL" } ou { fotoSobre: "URL" }).'
         });
       }
 
-      const cleanUrl = targetUrl.trim();
       if (redis) {
-        await redis.set(KV_HEADER_KEY, cleanUrl);
-        await redis.set('fotoCorretoraHeader', cleanUrl);
+        if (headerUrl && typeof headerUrl === 'string' && headerUrl.trim()) {
+          const cleanHeader = headerUrl.trim();
+          await redis.set(KV_HEADER_KEY, cleanHeader);
+          await redis.set('fotoCorretoraHeader', cleanHeader);
+        }
+
+        if (sobreUrl && typeof sobreUrl === 'string' && sobreUrl.trim()) {
+          const cleanSobre = sobreUrl.trim();
+          await redis.set(KV_SOBRE_KEY, cleanSobre);
+          await redis.set('fotoSobre', cleanSobre);
+        }
       }
 
       return res.status(200).json({
         success: true,
-        fotoCorretoraHeader: cleanUrl,
-        storage: redis ? 'upstash-redis' : 'none'
+        fotoCorretoraHeader: headerUrl ? String(headerUrl).trim() : undefined,
+        fotoSobre: sobreUrl ? String(sobreUrl).trim() : undefined,
+        storage: redis ? 'upstash-redis' : 'none',
+        message: 'Configurações salvas com sucesso no banco de dados Upstash Redis!'
       });
     } catch (err: any) {
       console.error('[Vercel Serverless POST] Erro ao salvar no Redis:', err);

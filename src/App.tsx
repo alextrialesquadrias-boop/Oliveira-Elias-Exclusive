@@ -140,15 +140,53 @@ export default function App() {
     }
   };
 
+  // Sincroniza fotoSobre do banco de dados persistente (Upstash Redis)
+  useEffect(() => {
+    fetch('/api/configuracoes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.fotoSobre && typeof data.fotoSobre === 'string' && data.fotoSobre.trim()) {
+          setSiteData((prev) => ({
+            ...prev,
+            about: {
+              ...prev.about,
+              brokerImageUrl: data.fotoSobre.trim()
+            }
+          }));
+        }
+      })
+      .catch((e) => console.warn('[App] Erro ao sincronizar fotoSobre do banco:', e));
+
+    const handleCustomFotoSobre = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setSiteData((prev) => ({
+          ...prev,
+          about: {
+            ...prev.about,
+            brokerImageUrl: customEvent.detail
+          }
+        }));
+      }
+    };
+
+    window.addEventListener('fotoSobreUpdated', handleCustomFotoSobre);
+    return () => window.removeEventListener('fotoSobreUpdated', handleCustomFotoSobre);
+  }, []);
+
   const handleResetDefaults = () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
       fetch('/api/configuracoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl })
+        body: JSON.stringify({
+          fotoCorretoraHeader: DEFAULT_ABOUT_DATA.brokerImageUrl,
+          fotoSobre: DEFAULT_ABOUT_DATA.brokerImageUrl
+        })
       }).catch((e) => console.warn(e));
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
+      window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn(e);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Award, CheckCircle2, UserCheck, Scale, Home, Clock, MapPin } from 'lucide-react';
 import { COMPANY_DATA, DEFAULT_ABOUT_DATA } from '../data/properties';
 import { AboutData } from '../types';
@@ -9,6 +9,60 @@ interface AboutSectionProps {
 
 export const AboutSection: React.FC<AboutSectionProps> = ({ aboutData }) => {
   const data = aboutData || DEFAULT_ABOUT_DATA;
+
+  // FOTO DA SEÇÃO SOBRE (A IMOBILIÁRIA):
+  // Carregada dinamicamente do Banco de Dados persistente (Upstash Redis) via GET /api/configuracoes.
+  // Fallback: se o banco estiver vazio, mantém a imagem padrão da corretora.
+  const [fotoSobre, setFotoSobre] = useState<string>(
+    aboutData?.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl
+  );
+
+  // Busca a URL da foto da seção Sobre no banco de dados persistente ao carregar o componente
+  useEffect(() => {
+    let isMounted = true;
+
+    const carregarFotoDoBanco = async () => {
+      try {
+        const response = await fetch('/api/configuracoes');
+        if (response.ok) {
+          const resData = await response.json();
+          const remoteUrl = resData?.fotoSobre || resData?.fotoCorretoraSobre;
+          if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.trim()) {
+            if (isMounted) {
+              setFotoSobre(remoteUrl.trim());
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('[AboutSection] Erro ao carregar foto da seção Sobre de /api/configuracoes:', error);
+      }
+
+      // Fallback: se o banco estiver vazio ou a requisição falhar, mantém a imagem padrão
+      if (isMounted) {
+        setFotoSobre(aboutData?.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl);
+      }
+    };
+
+    carregarFotoDoBanco();
+
+    // Listener para evento de atualização instantânea disparado pelo Painel Administrativo
+    const handleCustomEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setFotoSobre(customEvent.detail);
+      } else {
+        carregarFotoDoBanco();
+      }
+    };
+
+    window.addEventListener('fotoSobreUpdated', handleCustomEvent);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('fotoSobreUpdated', handleCustomEvent);
+    };
+  }, [aboutData?.brokerImageUrl]);
 
   return (
     <section id="a-imobiliaria" className="py-20 lg:py-28 bg-white relative overflow-hidden">
@@ -37,9 +91,12 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ aboutData }) => {
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-100 group">
               <img
-                src={data.brokerImageUrl || DEFAULT_ABOUT_DATA.brokerImageUrl}
+                src={fotoSobre}
                 alt="Daniela de Oliveira Elias - Corretora de Imóveis CRECI-SC 71040F"
                 className="w-full h-[450px] sm:h-[520px] object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = DEFAULT_ABOUT_DATA.brokerImageUrl;
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
 
