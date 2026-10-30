@@ -138,10 +138,20 @@ export default function App() {
     } catch (e) {
       console.warn('Erro ao salvar no localStorage:', e);
     }
+
+    // Persiste a lista completa de imóveis no Upstash Redis
+    fetch('/api/imoveis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: newProperties })
+    }).catch((err) => {
+      console.warn('[App] Erro ao sincronizar imóveis com Upstash Redis:', err);
+    });
   };
 
-  // Sincroniza fotoSobre do banco de dados persistente (Upstash Redis)
+  // Sincroniza fotoSobre e lista de imóveis do banco de dados persistente (Upstash Redis)
   useEffect(() => {
+    // Busca fotos da API de configurações
     fetch('/api/configuracoes')
       .then((res) => res.json())
       .then((data) => {
@@ -157,6 +167,19 @@ export default function App() {
       })
       .catch((e) => console.warn('[App] Erro ao sincronizar fotoSobre do banco:', e));
 
+    // Busca imóveis diretamente do banco de dados Upstash Redis
+    fetch('/api/imoveis')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
+          setSiteData((prev) => ({
+            ...prev,
+            properties: data.properties
+          }));
+        }
+      })
+      .catch((e) => console.warn('[App] Erro ao sincronizar imóveis do banco:', e));
+
     const handleCustomFotoSobre = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
@@ -170,8 +193,22 @@ export default function App() {
       }
     };
 
+    const handleCustomImoveis = (e: Event) => {
+      const customEvent = e as CustomEvent<Property[]>;
+      if (customEvent.detail && Array.isArray(customEvent.detail)) {
+        setSiteData((prev) => ({
+          ...prev,
+          properties: customEvent.detail
+        }));
+      }
+    };
+
     window.addEventListener('fotoSobreUpdated', handleCustomFotoSobre);
-    return () => window.removeEventListener('fotoSobreUpdated', handleCustomFotoSobre);
+    window.addEventListener('imoveisUpdated', handleCustomImoveis);
+    return () => {
+      window.removeEventListener('fotoSobreUpdated', handleCustomFotoSobre);
+      window.removeEventListener('imoveisUpdated', handleCustomImoveis);
+    };
   }, []);
 
   const handleResetDefaults = () => {
@@ -185,8 +222,16 @@ export default function App() {
           fotoSobre: DEFAULT_ABOUT_DATA.brokerImageUrl
         })
       }).catch((e) => console.warn(e));
+
+      fetch('/api/imoveis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' })
+      }).catch((e) => console.warn(e));
+
       window.dispatchEvent(new CustomEvent('fotoCorretoraHeaderUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
       window.dispatchEvent(new CustomEvent('fotoSobreUpdated', { detail: DEFAULT_ABOUT_DATA.brokerImageUrl }));
+      window.dispatchEvent(new CustomEvent('imoveisUpdated', { detail: PROPERTIES_DATA }));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn(e);

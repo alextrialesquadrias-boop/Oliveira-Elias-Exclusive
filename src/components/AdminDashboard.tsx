@@ -37,8 +37,14 @@ import {
   Settings
 } from 'lucide-react';
 import { HeroData, Property, SiteData, AboutData } from '../types';
-import { COMPANY_DATA, DEFAULT_ABOUT_DATA } from '../data/properties';
-import { formatCurrency } from '../utils/formatters';
+import { DEFAULT_ABOUT_DATA, PROPERTIES_DATA, COMPANY_DATA } from '../data/properties';
+
+import {
+  formatCurrency,
+  formatCurrencyMask,
+  maskCurrencyInput,
+  parseCurrencyMask
+} from '../utils/formatters';
 import {
   uploadImageToVercelBlob,
   deleteImageFromVercelBlob,
@@ -129,6 +135,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formData, setFormData] = useState<PropertyFormState>(emptyFormState);
   const [formError, setFormError] = useState<string | null>(null);
   const [originalPropertyImage, setOriginalPropertyImage] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState<string>('');
 
   // Vercel Blob Upload states
   const [isUploadingHero, setIsUploadingHero] = useState(false);
@@ -154,6 +161,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Vercel Blob token status check from server
   const [isBlobConfigured, setIsBlobConfigured] = useState<boolean | null>(null);
 
+  // Helper para sincronizar a lista de imóveis com o banco de dados (Upstash Redis)
+  const syncPropertiesToApi = (updatedList: Property[]) => {
+    fetch('/api/imoveis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: updatedList })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        window.dispatchEvent(new CustomEvent('imoveisUpdated', { detail: updatedList }));
+        console.log('[AdminDashboard] Imóveis sincronizados com o banco de dados:', data?.count);
+      })
+      .catch((err) => {
+        console.warn('[AdminDashboard] Erro ao sincronizar imóveis com a API:', err);
+      });
+  };
+
   useEffect(() => {
     fetch('/api/blob/status')
       .then((res) => res.json())
@@ -177,6 +201,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       })
       .catch((err) => {
         console.warn('[AdminDashboard] Erro ao carregar fotos da API:', err);
+      });
+
+    // Carrega a lista completa de imóveis diretamente do banco de dados (Upstash Redis)
+    fetch('/api/imoveis')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
+          setDraftProperties(data.properties);
+        }
+      })
+      .catch((err) => {
+        console.warn('[AdminDashboard] Erro ao carregar imóveis da API:', err);
       });
   }, []);
 
@@ -232,6 +268,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
       type: adminCategory === 'Casas' ? 'Casa' : adminCategory === 'Terrenos' ? 'Terreno' : adminCategory === 'Comerciais' ? 'Comercial' : 'Apartamento'
     });
+    setPriceInput(emptyFormState.price ? formatCurrencyMask(emptyFormState.price) : '');
     setOriginalPropertyImage(null);
     setFormMode('create');
     setFormImgError(null);
@@ -258,6 +295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       tag: prop.tag || '',
       description: prop.description
     });
+    setPriceInput(formatCurrencyMask(prop.price));
     setOriginalPropertyImage(currentImg);
     setFormMode('edit');
     setFormImgError(null);
@@ -275,6 +313,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
+    // Converte o valor mascarado para número puro antes de salvar no banco
+    const numericPrice = parseCurrencyMask(priceInput) || Number(formData.price) || 0;
+
     if (formMode === 'create') {
       const newProp: Property = {
         id: 'prop-' + Date.now(),
@@ -283,7 +324,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         type: formData.type,
         neighborhood: formData.neighborhood.trim() || 'Gravatá',
         city: 'Navegantes',
-        price: Number(formData.price) || 0,
+        price: numericPrice,
         bedrooms: formData.type === 'Terreno' ? undefined : Number(formData.bedrooms) || 0,
         bathrooms: formData.type === 'Terreno' ? undefined : Number(formData.bathrooms) || 0,
         parkingSpots: formData.type === 'Terreno' ? undefined : Number(formData.parkingSpots) || 0,
@@ -308,8 +349,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const updated = [newProp, ...draftProperties];
       setDraftProperties(updated);
+      syncPropertiesToApi(updated);
       onSave(draftHero, updated, draftAbout);
-      setToastMessage(`Imóvel ${newProp.code} cadastrado com sucesso!`);
+      setToastMessage(`Imóvel ${newProp.code} salvo com sucesso no banco de dados Upstash Redis!`);
     } else {
       // Edit existing property: if image changed and previous was on Vercel Blob, delete the old one
       if (originalPropertyImage && isVercelBlobUrl(originalPropertyImage)) {
@@ -329,7 +371,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             title: formData.title.trim(),
             type: formData.type,
             neighborhood: formData.neighborhood.trim(),
-            price: Number(formData.price) || 0,
+            price: numericPrice,
             bedrooms: formData.type === 'Terreno' ? undefined : Number(formData.bedrooms) || 0,
             bathrooms: formData.type === 'Terreno' ? undefined : Number(formData.bathrooms) || 0,
             parkingSpots: formData.type === 'Terreno' ? undefined : Number(formData.parkingSpots) || 0,
@@ -351,8 +393,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       setDraftProperties(updated);
+      syncPropertiesToApi(updated);
       onSave(draftHero, updated, draftAbout);
-      setToastMessage(`Imóvel atualizado com sucesso!`);
+      setToastMessage(`Imóvel atualizado com sucesso no banco de dados Upstash Redis!`);
     }
 
     setShowSavedToast(true);
@@ -381,9 +424,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // 3. Remove property from state and sync to localStorage
+    // 3. Remove property from state, sync to Upstash Redis API, and trigger local updates
     const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
+    syncPropertiesToApi(updated);
     onSave(draftHero, updated, draftAbout);
 
     setToastMessage(
@@ -721,6 +765,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
     }
 
+    // Salva a lista de imóveis no Upstash Redis
+    syncPropertiesToApi(draftProperties);
+
     onSave(draftHero, draftProperties, draftAbout);
     setToastMessage('Todas as alterações foram salvas com sucesso no banco de dados Upstash Redis!');
     setShowSavedToast(true);
@@ -729,6 +776,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleConfirmReset = () => {
     onResetDefaults();
+    setDraftProperties(PROPERTIES_DATA);
+    syncPropertiesToApi(PROPERTIES_DATA);
+
     fetch('/api/configuracoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1949,20 +1999,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                     Preço de Venda (R$) *
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-400 font-bold text-xs">
-                      R$
-                    </div>
-                    <input
-                      type="number"
-                      required
-                      step="1000"
-                      min="0"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-white text-sm font-bold font-mono rounded-xl py-3 pl-10 pr-3.5 outline-none"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    inputMode="numeric"
+                    placeholder="R$ 0,00"
+                    value={priceInput}
+                    onChange={(e) => {
+                      const { formatted, numeric } = maskCurrencyInput(e.target.value);
+                      setPriceInput(formatted);
+                      setFormData((prev) => ({ ...prev, price: numeric }));
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-amber-400 text-sm font-bold font-mono rounded-xl py-3 px-3.5 outline-none transition-colors"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Formatação automática de moeda (ex: R$ 1.850.000,00).
+                  </p>
                 </div>
 
                 <div>

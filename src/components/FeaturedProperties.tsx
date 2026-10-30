@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BedDouble, Bath, Car, Maximize2, Sparkles, MapPin, Tag, ArrowRight, Check, Home, Building2, Layers } from 'lucide-react';
 import { Property, SearchFilter } from '../types';
 import { formatCurrency } from '../utils/formatters';
@@ -21,6 +21,55 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
   const [activeTab, setActiveTab] = useState<PropertyCategoryTab>('Todos');
   const [showAll, setShowAll] = useState(true);
 
+  // Lista dinâmica de imóveis persistida no banco de dados (Upstash Redis)
+  const [propertiesList, setPropertiesList] = useState<Property[]>(properties || []);
+
+  // Sincroniza com as props enviadas pelo componente App
+  useEffect(() => {
+    if (properties && Array.isArray(properties) && properties.length > 0) {
+      setPropertiesList(properties);
+    }
+  }, [properties]);
+
+  // Busca os imóveis da rota GET /api/imoveis no carregamento inicial
+  useEffect(() => {
+    let isMounted = true;
+
+    const carregarImoveisDoBanco = async () => {
+      try {
+        const res = await fetch('/api/imoveis');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
+            if (isMounted) {
+              setPropertiesList(data.properties);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[FeaturedProperties] Erro ao buscar imóveis de /api/imoveis:', err);
+      }
+    };
+
+    carregarImoveisDoBanco();
+
+    // Listener para atualização instantânea disparada pelo Painel Administrativo
+    const handleImoveisUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<Property[]>;
+      if (customEvent.detail && Array.isArray(customEvent.detail)) {
+        setPropertiesList(customEvent.detail);
+      } else {
+        carregarImoveisDoBanco();
+      }
+    };
+
+    window.addEventListener('imoveisUpdated', handleImoveisUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('imoveisUpdated', handleImoveisUpdated);
+    };
+  }, []);
+
   // Tab category matcher
   const matchesCategory = (itemType: Property['type'], tab: PropertyCategoryTab): boolean => {
     if (tab === 'Todos') return true;
@@ -32,7 +81,7 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
   };
 
   // Filter properties based on searchFilter and active tab
-  const filtered = properties.filter((item) => {
+  const filtered = propertiesList.filter((item) => {
     // Tab filter
     if (!matchesCategory(item.type, activeTab)) {
       return false;
@@ -65,7 +114,7 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
 
   // Counts for each tab
   const countForTab = (tab: PropertyCategoryTab) => {
-    return properties.filter((p) => matchesCategory(p.type, tab)).length;
+    return propertiesList.filter((p) => matchesCategory(p.type, tab)).length;
   };
 
   const tabs: PropertyCategoryTab[] = ['Todos', 'Apartamentos', 'Casas', 'Terrenos', 'Comerciais'];
@@ -321,11 +370,11 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
         )}
 
         {/* Footer Note under Grid */}
-        {properties.length > 0 && (
+        {propertiesList.length > 0 && (
           <div className="mt-14 text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
               <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Total de {properties.length} imóveis cadastrados para venda em Navegantes/SC</span>
+              <span>Total de {propertiesList.length} imóveis cadastrados para venda em Navegantes/SC</span>
             </div>
             <p className="text-xs text-slate-400 mt-2">
               Atendimento 24h com a corretora Daniela de Oliveira Elias (CRECI-SC 71040F)

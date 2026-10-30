@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { del } from '@vercel/blob';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { Redis } from '@upstash/redis';
+import { PROPERTIES_DATA } from './src/data/properties';
 
 dotenv.config();
 dotenv.config({ path: '.env.local' });
@@ -157,6 +158,82 @@ async function startServer() {
     return { storage: storageUsed };
   };
 
+  const KV_IMOVEIS_KEY = 'data:properties';
+  const IMOVEIS_FILE = path.join(DATA_DIR, 'imoveis.json');
+
+  const readLocalProperties = (): any[] | null => {
+    try {
+      ensureDataDir();
+      if (fs.existsSync(IMOVEIS_FILE)) {
+        const raw = fs.readFileSync(IMOVEIS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      console.warn('[Storage] Erro ao ler imoveis.json:', err);
+    }
+    return null;
+  };
+
+  const writeLocalProperties = (data: any[]) => {
+    try {
+      ensureDataDir();
+      fs.writeFileSync(IMOVEIS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[Storage] Erro ao gravar imoveis.json:', err);
+    }
+  };
+
+  const getDbProperties = async (): Promise<any[]> => {
+    const client = getRedisClient();
+    if (client) {
+      try {
+        let val = await client.get<any>(KV_IMOVEIS_KEY);
+        if (!val) {
+          val = await client.get<any>('imoveis');
+        }
+        if (typeof val === 'string') {
+          try {
+            val = JSON.parse(val);
+          } catch {}
+        }
+        if (Array.isArray(val) && val.length > 0) {
+          return val;
+        }
+      } catch (kvErr) {
+        console.warn('[Upstash Redis] Erro ao ler imoveis com Redis.fromEnv():', kvErr);
+      }
+    }
+
+    const local = readLocalProperties();
+    if (local && Array.isArray(local) && local.length > 0) {
+      return local;
+    }
+
+    // Inicializa o arquivo local com os dados padrão caso esteja vazio
+    writeLocalProperties(PROPERTIES_DATA);
+    return PROPERTIES_DATA;
+  };
+
+  const setDbProperties = async (properties: any[]): Promise<{ storage: string }> => {
+    let storageUsed = 'local-db';
+    const client = getRedisClient();
+    if (client) {
+      try {
+        await client.set(KV_IMOVEIS_KEY, properties);
+        await client.set('imoveis', properties);
+        storageUsed = 'upstash-redis';
+      } catch (kvErr) {
+        console.warn('[Upstash Redis] Erro ao gravar imoveis com Redis.fromEnv():', kvErr);
+      }
+    }
+
+    writeLocalProperties(properties);
+    return { storage: storageUsed };
+  };
+
   // Health check endpoint
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -267,6 +344,81 @@ async function startServer() {
       return res.status(500).json({
         success: false,
         error: err?.message || 'Erro ao salvar configuração no banco de dados.'
+      });
+    }
+  });
+
+  // Rota GET /api/imoveis
+  // Retorna a lista completa de imóveis do banco de dados (Upstash Redis)
+  app.get('/api/imoveis', async (_req, res) => {
+    try {
+      const properties = await getDbProperties();
+      return res.json({
+        success: true,
+        properties,
+        count: properties.length,
+        storage: getRedisClient() ? 'upstash-redis' : 'local-db'
+      });
+    } catch (err: any) {
+      console.error('[API /api/imoveis GET] Erro ao buscar imóveis:', err);
+      return res.json({
+        success: true,
+        properties: PROPERTIES_DATA,
+        count: PROPERTIES_DATA.length,
+        storage: 'fallback'
+      });
+    }
+  });
+
+  // Rota POST /api/imoveis
+  // Salva (cria, edita, exclui) a lista de imóveis no banco de dados persistente
+  app.post('/api/imoveis', async (req, res) => {
+    try {
+      const body = req.body || {};
+      let propertiesToSave: any[] | null = null;
+
+      if (Array.isArray(body)) {
+        propertiesToSave = body;
+      } else if (Array.isArray(body.properties)) {
+        propertiesToSave = body.properties;
+      } else if (body.action === 'reset') {
+        propertiesToSave = PROPERTIES_DATA;
+      } else if (body.action === 'delete' && body.id) {
+        const current = await getDbProperties();
+        propertiesToSave = current.filter((p: any) => p.id !== body.id);
+      } else if (body.property) {
+        const current = await getDbProperties();
+        const incoming = body.property;
+        const existsIndex = current.findIndex((p: any) => p.id === incoming.id);
+        if (existsIndex >= 0) {
+          propertiesToSave = current.map((p: any, idx: number) => idx === existsIndex ? { ...p, ...incoming } : p);
+        } else {
+          propertiesToSave = [incoming, ...current];
+        }
+      }
+
+      if (!propertiesToSave || !Array.isArray(propertiesToSave)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Formato inválido. Esperado { properties: Property[] } ou { property: Property }.'
+        });
+      }
+
+      const { storage } = await setDbProperties(propertiesToSave);
+      console.log(`[API /api/imoveis POST] ${propertiesToSave.length} imóveis salvos no Upstash Redis (${storage}).`);
+
+      return res.json({
+        success: true,
+        properties: propertiesToSave,
+        count: propertiesToSave.length,
+        storage,
+        message: 'Lista de imóveis salva com sucesso no banco de dados Upstash Redis!'
+      });
+    } catch (err: any) {
+      console.error('[API /api/imoveis POST] Erro ao salvar imóveis:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Erro ao salvar imóveis no banco de dados.'
       });
     }
   });
