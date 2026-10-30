@@ -423,6 +423,44 @@ async function startServer() {
     }
   });
 
+  // Rota DELETE /api/imoveis/:id e DELETE /api/imoveis
+  // Exclui um imóvel do banco de dados (Upstash Redis)
+  const handleDeleteImovel = async (req: express.Request, res: express.Response) => {
+    try {
+      const id = req.params?.id || (req.query?.id as string) || (req.body?.id as string);
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID do imóvel não fornecido para exclusão.'
+        });
+      }
+
+      const current = await getDbProperties();
+      const updated = current.filter((p: any) => p.id !== id);
+      const { storage } = await setDbProperties(updated);
+      console.log(`[API /api/imoveis DELETE] Imóvel ${id} excluído do Upstash Redis (${storage}). Total restante: ${updated.length}`);
+
+      return res.json({
+        success: true,
+        id,
+        properties: updated,
+        count: updated.length,
+        storage,
+        message: `Imóvel ${id} excluído com sucesso do banco de dados Upstash Redis!`
+      });
+    } catch (err: any) {
+      console.error('[API /api/imoveis DELETE] Erro ao excluir:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Erro ao excluir imóvel no banco de dados.'
+      });
+    }
+  };
+
+  app.delete('/api/imoveis/:id', handleDeleteImovel);
+  app.delete('/api/imoveis', handleDeleteImovel);
+
+
   // Vercel Blob client upload handler using handleUpload from @vercel/blob/client
   // Generates client token for direct client-to-blob uploads
   const handleBlobUpload = async (req: express.Request, res: express.Response) => {

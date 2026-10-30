@@ -214,7 +214,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .catch((err) => {
         console.warn('[AdminDashboard] Erro ao carregar imóveis da API:', err);
       });
-  }, []);
+  }, [isOpen]);
 
   // Suggestions for high-res real estate banner images
   const bannerPresets = [
@@ -424,9 +424,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     }
 
-    // 3. Remove property from state, sync to Upstash Redis API, and trigger local updates
+    // 3. Remove property from state, call DELETE /api/imoveis/:id and sync to Upstash Redis API
     const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
+
+    // Envia requisição DELETE para /api/imoveis/:id no Upstash Redis
+    fetch(`/api/imoveis/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      .catch((err) => {
+        console.warn('[AdminDashboard] DELETE /api/imoveis falhou, utilizando fallback:', err);
+      });
+
     syncPropertiesToApi(updated);
     onSave(draftHero, updated, draftAbout);
 
@@ -2325,7 +2332,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <h3 className="text-lg font-bold text-white">Restaurar Dados Padrão?</h3>
             <p className="text-xs text-slate-300">
-              Isso limpará as alterações do localStorage e restaurará a lista e fotos iniciais da Oliveira Elias Exclusive.
+              Isso restaurará a lista inicial de imóveis e fotos no banco de dados Upstash Redis.
             </p>
             <div className="flex gap-2 justify-center pt-2">
               <button

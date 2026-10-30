@@ -127,5 +127,44 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  // DELETE: Exclui um imóvel específico pelo ID do Upstash Redis
+  if (req.method === 'DELETE') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+      const id = req.query?.id || body?.id;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID do imóvel não fornecido.'
+        });
+      }
+
+      const current = await fetchPropertiesFromRedis();
+      const updated = current.filter((p: any) => p.id !== id);
+
+      if (redis) {
+        await redis.set(KV_IMOVEIS_KEY, updated);
+        await redis.set('imoveis', updated);
+      }
+
+      return res.status(200).json({
+        success: true,
+        id,
+        properties: updated,
+        count: updated.length,
+        storage: redis ? 'upstash-redis' : 'none',
+        message: `Imóvel ${id} excluído com sucesso do banco de dados Upstash Redis!`
+      });
+    } catch (err: any) {
+      console.error('[Vercel Serverless /api/imoveis DELETE] Erro:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Erro ao excluir imóvel do banco de dados.'
+      });
+    }
+  }
+
   return res.status(405).json({ error: 'Método não permitido.' });
 }
+

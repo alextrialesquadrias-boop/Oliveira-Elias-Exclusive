@@ -29,26 +29,23 @@ import {
 import { Property, SearchFilter, HeroData, AboutData, SiteData } from './types';
 
 export default function App() {
-  // Load initial customized site data from localStorage (or fallback to defaults)
+  // Carrega configurações de banner e sobre (a lista de imóveis é 100% persistida no Upstash Redis via /api/imoveis)
   const [siteData, setSiteData] = useState<SiteData>(() => {
+    let hero = DEFAULT_HERO_DATA;
+    let about = DEFAULT_ABOUT_DATA;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.hero && Array.isArray(parsed.properties) && parsed.properties.length > 0) {
-          return {
-            hero: parsed.hero,
-            about: parsed.about || DEFAULT_ABOUT_DATA,
-            properties: parsed.properties
-          };
-        }
+        if (parsed.hero) hero = parsed.hero;
+        if (parsed.about) about = parsed.about;
       }
     } catch (e) {
       console.warn('Erro ao carregar dados do localStorage:', e);
     }
     return {
-      hero: DEFAULT_HERO_DATA,
-      about: DEFAULT_ABOUT_DATA,
+      hero,
+      about,
       properties: PROPERTIES_DATA
     };
   });
@@ -133,8 +130,10 @@ export default function App() {
       properties: newProperties
     };
     setSiteData(newData);
+
+    // Salva apenas configurações de hero e about no localStorage (imóveis ficam 100% no Upstash Redis)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ hero: newHero, about: newAbout }));
     } catch (e) {
       console.warn('Erro ao salvar no localStorage:', e);
     }
@@ -144,9 +143,14 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: newProperties })
-    }).catch((err) => {
-      console.warn('[App] Erro ao sincronizar imóveis com Upstash Redis:', err);
-    });
+    })
+      .then((res) => res.json())
+      .then(() => {
+        window.dispatchEvent(new CustomEvent('imoveisUpdated', { detail: newProperties }));
+      })
+      .catch((err) => {
+        console.warn('[App] Erro ao sincronizar imóveis com Upstash Redis:', err);
+      });
   };
 
   // Sincroniza fotoSobre e lista de imóveis do banco de dados persistente (Upstash Redis)
