@@ -22,12 +22,16 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  // Instanciação usando Redis.fromEnv() que lê automaticamente KV_REST_API_URL e KV_REST_API_TOKEN
+  // Instanciação usando Redis com checagem segura das variáveis de ambiente
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   let redis: Redis | null = null;
-  try {
-    redis = Redis.fromEnv();
-  } catch (e) {
-    console.warn('[Vercel Serverless] Redis.fromEnv() aviso:', e);
+  if (url && token) {
+    try {
+      redis = new Redis({ url, token });
+    } catch (e) {
+      console.warn('[Vercel Serverless] Redis aviso:', e);
+    }
   }
 
   // GET: Retorna as fotos salvas (cabeçalho e sobre) ou null caso o banco esteja vazio

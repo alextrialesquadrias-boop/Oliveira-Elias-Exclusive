@@ -38,7 +38,8 @@ export const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({
     const carregarImoveisDoBanco = async () => {
       try {
         const res = await fetch('/api/imoveis');
-        if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
           const data = await res.json();
           if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
             if (isMounted) {

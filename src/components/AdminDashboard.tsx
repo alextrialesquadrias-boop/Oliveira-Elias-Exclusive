@@ -205,7 +205,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     // Carrega a lista completa de imóveis diretamente do banco de dados (Upstash Redis)
     fetch('/api/imoveis')
-      .then((res) => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return res.json();
+        }
+        return null;
+      })
       .then((data) => {
         if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
           setDraftProperties(data.properties);
@@ -428,8 +434,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = draftProperties.filter((p) => p.id !== id);
     setDraftProperties(updated);
 
-    // Envia requisição DELETE para /api/imoveis/:id no Upstash Redis
-    fetch(`/api/imoveis/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    // Envia requisição DELETE para /api/imoveis?id= no Upstash Redis
+    fetch(`/api/imoveis?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       .catch((err) => {
         console.warn('[AdminDashboard] DELETE /api/imoveis falhou, utilizando fallback:', err);
       });

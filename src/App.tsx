@@ -173,7 +173,13 @@ export default function App() {
 
     // Busca imóveis diretamente do banco de dados Upstash Redis
     fetch('/api/imoveis')
-      .then((res) => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return res.json();
+        }
+        return null;
+      })
       .then((data) => {
         if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
           setSiteData((prev) => ({
